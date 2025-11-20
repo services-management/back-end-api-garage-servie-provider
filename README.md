@@ -1,1 +1,4 @@
-# back-end-api-garage-servie-provider
+# back-end-api-garage-service-provider
+
+## run requirements install package 
+```pip freeze > requirements.txt```
