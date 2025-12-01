@@ -1,23 +1,11 @@
 from typing import List, Optional
 from uuid import UUID
 from sqlalchemy.orm import Session
-from src.models.user import User
-import bcrypt
-
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a plain password against a hashed password."""
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
-
-
-def hash_password(password: str) -> str:
-    """Hash a password using bcrypt."""
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-
+from src.models.user_model import User
+from src.utils import hash_password
+import abc
 class UserRepository:
     """Repository for User database operations."""
-
     def get_all(self, db: Session) -> List[User]:
         """Get all users from the database."""
         return db.query(User).all()
@@ -42,7 +30,7 @@ class UserRepository:
         db.commit()
         db.refresh(db_user)
         return db_user
-
+    
     def create_admin_user_if_not_exists(self, db: Session):
         """Create admin user if it doesn't exist."""
         admin_user = self.get_by_username(db, "admin")
@@ -50,4 +38,4 @@ class UserRepository:
             self.create_user(db, username="admin", password="admin", is_admin=True)
 
 
-user_repository = UserRepository()
+# user_repository = UserRepository()

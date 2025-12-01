@@ -1,2 +1,2 @@
-__all__ = ["user"]
-from . import user
+__all__ = ["user_shema.py"]
+from . import user_shema
