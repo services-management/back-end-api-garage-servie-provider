@@ -1,10 +1,18 @@
 from fastapi import FastAPI, Depends
 from src.routers import auth
+from src.routers import auth_user
 from src.config.database import get_db, Base, engine, SessionLocal
-from src.repositories.user import user_repository
+from src.repositories import  UserRepository
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
+user_repositories = UserRepository()
+app = FastAPI(
+    title="Fixing Service API",
+    description="Backend API for Garage Service Provider",
+    version="1.0.0"
+
+)
 
 def init_db():
     """Initialize database tables and create admin user if needed."""
@@ -15,7 +23,7 @@ def init_db():
         # Create admin user if it doesn't exist
         db = SessionLocal()
         try:
-            user_repository.create_admin_user_if_not_exists(db)
+            user_repositories.create_admin_user_if_not_exists(db)
             db.commit()
             print("✅ Database initialized successfully")
         except Exception as e:
@@ -27,13 +35,6 @@ def init_db():
         print(f"❌ Error connecting to database: {e}")
         print("   Please check your database configuration in .env file")
         print("   The application will continue, but database features may not work.")
-
-
-app = FastAPI(
-    title="Fixing Service API",
-    description="Backend API for Garage Service Provider",
-    version="1.0.0"
-)
 
 
 # Initialize database on startup
@@ -59,3 +60,6 @@ def test_db_connection(db: Session = Depends(get_db)):
     except Exception as e:
         return {"message": f"Database connection failed: {e}"}
 
+
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(auth_user.router)  # or prefix="/api"
