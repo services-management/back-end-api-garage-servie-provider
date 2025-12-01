@@ -26,44 +26,37 @@ class Settings(BaseSettings):
     # DB driver: 'psycopg' (psycopg3) or 'psycopg2'
     DB_DRIVER: str = os.getenv("DB_DRIVER", "psycopg2")
 
+    # JWT settings (optional - only needed for authentication endpoints)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    SECRET_KEY: str = "a_very_secret_key"
+    SECRET_KEY: Optional[str] = os.getenv("SECRET_KEY", "a_very_secret_key_change_in_production")
     ALGORITHM: str = "HS256"
 
     @model_validator(mode="after")
     def construct_db_url(self):
+        """Construct DATABASE_URL from individual components if not provided.
+        
+        Note: Database connection works independently of SECRET_KEY.
+        SECRET_KEY is only required for JWT token generation in auth endpoints.
+        """
         # If DATABASE_URL is already provided, keep it.
         if self.DATABASE_URL:
             return self
 
-        user = self.DB_USER or os.getenv("DB_USER")
-        password = self.DB_PASSWORD or os.getenv("DB_PASSWORD")
+        # Get values from instance or environment variables
+        user = self.DB_USER or os.getenv("DB_USER") or "postgres"  # Default to postgres
+        password = self.DB_PASSWORD or os.getenv("DB_PASSWORD") or ""
         host = self.DB_HOST or os.getenv("DB_HOST", "localhost")
         port = self.DB_PORT or int(os.getenv("DB_PORT", 5432))
         db = self.DB_NAME or os.getenv("DB_NAME", "fixing_service_db")
         driver = self.DB_DRIVER or os.getenv("DB_DRIVER", "psycopg2")
 
-        auth = ""
-        if user:
-            # include password if present
-            if password:
-                auth = f"{user}:{password}@"
-            else:
-                auth = f"{user}@"
+        # Construct authentication part
+        if password:
+            auth = f"{user}:{password}@"
+        else:
+            auth = f"{user}@"
 
         self.DATABASE_URL = f"postgresql+{driver}://{auth}{host}:{port}/{db}"
         return self
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
-        return PostgresDsn.build(
-            scheme="postgresql+psycopg",
-            username=self.DB_USER,
-            password=self.POSTGRES_PASSWORD,
-            host=self.POSTGRES_SERVER,
-            port=self.POSTGRES_PORT,
-            path=self.POSTGRES_DB,
-        )
 
 settings = Settings()
