@@ -10,6 +10,9 @@ from src.config.settings import settings
 class Database:
     """Encapsulates SQLAlchemy engine, session maker and Base.
 
+    Note: Database connection works independently of SECRET_KEY.
+    Only DATABASE_URL (or DB_USER, DB_PASSWORD, etc.) is required.
+
     Usage:
       db = Database()
       with db.session_scope() as session:
@@ -19,6 +22,13 @@ class Database:
     """
 
     def __init__(self, database_url: Optional[str] = None, **engine_kwargs):
+        """Initialize database connection.
+        
+        Args:
+            database_url: Optional Postgre SQL connection string.
+                         If not provided, uses settings.DATABASE_URL.
+                         SECRET_KEY is NOT required for database connection.
+        """
         self.database_url = database_url or settings.DATABASE_URL
         # allow caller to override engine kwargs (pooling, echo, etc.)
         self.engine = create_engine(self.database_url, **engine_kwargs)
