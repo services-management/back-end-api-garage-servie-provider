@@ -1,0 +1,51 @@
+# DELETE the 'version: 3.8' line to remove the obsolete warning
+services:
+  # 1. Database Service (Your existing config)
+  db:
+    image: postgres:15
+    container_name: fixing-service-db
+    restart: unless-stopped
+    environment:
+      # We recommend using variables from your .env file here:
+      # POSTGRES_USER: ${POSTGRES_USER}
+      # POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fixing_service_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    
+    # *** ADDED HEALTHCHECK FOR RELIABLE STARTUP ***
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Application Service (This was missing!)
+  app:
+    build: . # Look for Dockerfile in the current directory
+    container_name: fixing-service-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000" # Maps application port 8000 (adjust if your app uses a different port)
+    volumes:
+      # Bind mount for development: syncs local code changes instantly
+      - .:/usr/src/app
+    depends_on:
+      db:
+        condition: service_healthy # Wait until the DB is truly ready
+    environment:
+      # Variables your app uses to form the connection string
+      DB_HOST: db # Use the service name 'db', not localhost
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: fixing_service_db
+      # You can add other variables like SECRET_KEY here, or use the .env file
+      
+volumes:
+  postgres_data:

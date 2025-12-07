@@ -1,12 +1,11 @@
 from fastapi import FastAPI, Depends
-from src.routers import auth
-from src.routers import auth_user
+from src.routers.admin import router as admin_router
 from src.config.database import get_db, Base, engine, SessionLocal
-from src.repositories import  UserRepository
+from src.repositories import  AdminRepository
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-
-user_repositories = UserRepository()
+from src.routers.technical_router import router as technical_router
+# user_repositories = AdminRepository()
 app = FastAPI(
     title="Fixing Service API",
     description="Backend API for Garage Service Provider",
@@ -43,7 +42,7 @@ async def startup_event():
     init_db()
 
 
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
+
 
 
 @app.get("/app")
@@ -61,5 +60,5 @@ def test_db_connection(db: Session = Depends(get_db)):
         return {"message": f"Database connection failed: {e}"}
 
 
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(auth_user.router)  # or prefix="/api"
+app.include_router(admin_router)# or prefix="/api"
+app.include_router(technical_router)

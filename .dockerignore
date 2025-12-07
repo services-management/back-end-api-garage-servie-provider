@@ -1,0 +1,24 @@
+# Ignore the entire Git history folder
+.git
+
+# Ignore Python specific files
+__pycache__
+*.pyc
+*.pyo
+
+# Ignore Virtual Environments
+venv
+.venv
+env
+*.env  # Critical for excluding local secrets!
+
+# Ignore build/packaging artifacts
+dist
+build
+*.egg-info
+.tox
+.coverage
+
+# Ignore IDE/Editor settings
+.idea
+.vscode

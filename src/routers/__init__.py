@@ -1,4 +1,4 @@
-from .auth_user import *
-from .auth import *
+from .admin import *
+from .technical_router import *
 
-__all__ = ["auth","auth_user"]
+__all__ = ['admin','technical_router']

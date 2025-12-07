@@ -1,2 +1,3 @@
-__all__ = ["user_shema.py"]
-from . import user_shema
+__all__ = ["admin_shema.py","technical_shema"]
+from . import admin_shema
+from . import technical_shema
