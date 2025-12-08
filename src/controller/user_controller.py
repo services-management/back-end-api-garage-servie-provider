@@ -1,22 +1,21 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
-# from src.repositories.user_repositories import user_repository, verify_password
 from src.repositories import UserRepository
-from src.schemas.user_shema import UserCreate, UserOut
-from src.models.user_model import User
+from src.models.user_models import UserCreate
+from src.schemas.user_schemas import User
 from src.utils import verify_password
+
 user_repositories = UserRepository()
+
 class UserController:
-    """
-    Controller / service layer for user use-cases.
-    Orchestrates business logic and delegates persistence to the repository.
-    """
+
     @staticmethod
     def list_users(self, db: Session) -> List[User]:
         return user_repositories.get_all(db)
 
     @staticmethod
     def get_user(self, db: Session, user_id) -> Optional[User]:
+        
         return user_repositories.get_by_id(db, user_id)
 
     @staticmethod
@@ -38,6 +37,3 @@ class UserController:
         if not verify_password(password, user.password):
             return None
         return user
-
-
-# user_controller = UserController()

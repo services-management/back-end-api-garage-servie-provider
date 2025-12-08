@@ -1,11 +1,11 @@
 from typing import List, Optional
 from uuid import UUID
 from sqlalchemy.orm import Session
-from src.models.user_model import User
+from src.schemas.user_schemas import User
 from src.utils import hash_password
-import abc
+
 class UserRepository:
-    """Repository for User database operations."""
+
     def get_all(self, db: Session) -> List[User]:
         """Get all users from the database."""
         return db.query(User).all()
@@ -31,11 +31,9 @@ class UserRepository:
         db.refresh(db_user)
         return db_user
     
-    def create_admin_user_if_not_exists(self, db: Session):
+    def create_admin(self, db: Session):
         """Create admin user if it doesn't exist."""
         admin_user = self.get_by_username(db, "admin")
         if not admin_user:
             self.create_user(db, username="admin", password="admin", is_admin=True)
 
-
-# user_repository = UserRepository()

@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings
-from pydantic import computed_field
 from pydantic import model_validator, PostgresDsn
 from dotenv import load_dotenv
 from typing import Optional

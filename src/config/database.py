@@ -3,7 +3,6 @@ from contextlib import contextmanager
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-
 from src.config.settings import settings
 
 
@@ -22,13 +21,8 @@ class Database:
     """
 
     def __init__(self, database_url: Optional[str] = None, **engine_kwargs):
-        """Initialize database connection.
-        
-        Args:
-            database_url: Optional Postgre SQL connection string.
-                         If not provided, uses settings.DATABASE_URL.
-                         SECRET_KEY is NOT required for database connection.
-        """
+        """Initialize database connection."""
+
         self.database_url = database_url or settings.DATABASE_URL
         # allow caller to override engine kwargs (pooling, echo, etc.)
         self.engine = create_engine(self.database_url, **engine_kwargs)
@@ -36,7 +30,6 @@ class Database:
         self.Base = declarative_base()
 
     def get_db(self) -> Generator:
-        """Yield a SQLAlchemy Session (generator for FastAPI dependency)."""
         db = self.SessionLocal()
         try:
             yield db
@@ -68,8 +61,4 @@ SessionLocal = default_db.SessionLocal
 Base = default_db.Base
 
 def get_db():
-    """Module-level generator for FastAPI dependencies.
-
-    Keeps compatibility with existing imports that expect a `get_db` function.
-    """
     yield from default_db.get_db()

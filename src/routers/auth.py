@@ -8,7 +8,7 @@ from src.config.settings import settings
 from src.config.database import get_db
 from src.controller import UserController
 from src.repositories import UserRepository
-from src.schemas.user_shema import Token, UserOut, UserCreate
+from src.models.user_models import Token, UserOut, UserCreate
 from jose import JWTError, jwt
 from src.utils import verify_password
 

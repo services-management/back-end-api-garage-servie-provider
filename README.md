@@ -151,8 +151,6 @@ On first startup, the application automatically creates an admin user:
 - **Username**: `admin`
 - **Password**: `admin`
 
-**⚠️ Important:** Change the admin password in production!
-
 ## API Endpoints
 
 ### Authentication
@@ -178,7 +176,7 @@ uvicorn main:app --reload
 
 ### Run in Production Mode
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 8000
+uvicorn main:app 
 ```
 
 ## Project Structure
@@ -230,95 +228,6 @@ python examples/test_db_connection.py
 # Or test via API
 curl http://localhost:8000/
 ```
-
-## Troubleshooting
-
-### Database Connection Issues
-
-**Error: `password authentication failed for user "fixing_service_db"`**
-
-This means your `.env` file has incorrect database credentials. The username should be your PostgreSQL user (usually `postgres`), not the database name.
-
-1. **Check your `.env` file:**
-   ```env
-   # Correct format:
-   DB_USER=postgres          # PostgreSQL username (NOT the database name)
-   DB_PASSWORD=your_password # PostgreSQL password
-   DB_HOST=localhost
-   DB_PORT=5432
-   DB_NAME=fixing_service_db # Database name (can be different from username)
-   ```
-
-2. **Verify PostgreSQL is running:**
-   ```bash
-   # Linux/Mac
-   sudo systemctl status postgresql
-   
-   # Or check if Docker container is running
-   docker ps
-   ```
-
-3. **Test connection manually:**
-   ```bash
-   psql -U postgres -h localhost -d fixing_service_db
-   ```
-
-4. **If using Docker PostgreSQL, check the container:**
-   ```bash
-   docker exec -it fixing-service-db psql -U postgres
-   ```
-
-### File Watch Limit Error
-
-**Error: `OSError: OS file watch limit reached`**
-
-This happens when the system runs out of file watchers for auto-reload. Fix it:
-
-**Option 1: Increase system limit (Recommended)**
-```bash
-# Run the provided script
-./fix_file_watch_limit.sh
-
-# Or manually:
-sudo sysctl fs.inotify.max_user_watches=524288
-
-# Make it permanent:
-echo 'fs.inotify.max_user_watches=524288' | sudo tee -a /etc/sysctl.conf
-sudo sysctl -p
-```
-
-**Option 2: Run without auto-reload**
-```bash
-# Use uvicorn without --reload
-uvicorn main:app --host 0.0.0.0 --port 8000
-
-# Or use FastAPI CLI with --reload=false
-fastapi run main.py --host 0.0.0.0 --port 8000
-```
-
-**Option 3: Exclude large directories**
-The `.watchignore` file has been created to exclude `venv/`, `__pycache__/`, etc. from watching.
-
-### Port Already in Use
-
-If port 8000 is already in use, specify a different port:
-```bash
-uvicorn main:app --reload --port 8001
-```
-
-### Import Errors
-
-Make sure you're in the project root directory and the virtual environment is activated:
-```bash
-source venv/bin/activate
-```
-
-### Database Connection Fails on Startup
-
-If the database connection fails during startup, the app will still start but show a warning. Check:
-1. PostgreSQL is running
-2. `.env` file has correct credentials
-3. Database exists (create it if needed: `CREATE DATABASE fixing_service_db;`)
 
 ## Generating Requirements
 

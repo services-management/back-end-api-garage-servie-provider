@@ -4,16 +4,14 @@ from sqlalchemy.orm import Session
 from datetime import timedelta, datetime
 from src.config.settings import settings
 from src.config.database import get_db
-from src.controller import UserController # <-- new import
+from src.controller import UserController
 from src.routers.auth import create_access_token
-from src.schemas.user_shema import Token
-from jose import JWTError, jwt
+from src.models.user_models import Token
 
 router = APIRouter()
 user_controller = UserController()
-# ... keep create_access_token as-is ...
 
-@router.post("/login", response_model=Token)
+@router.post("/logins", response_model=Token)
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),

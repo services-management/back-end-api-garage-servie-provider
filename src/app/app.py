@@ -15,15 +15,13 @@ app = FastAPI(
 )
 
 def init_db():
-    """Initialize database tables and create admin user if needed."""
+    """Initialize database tables"""
     try:
         # Create all tables
         Base.metadata.create_all(bind=engine)
-        
-        # Create admin user if it doesn't exist
         db = SessionLocal()
         try:
-            user_repositories.create_admin_user_if_not_exists(db)
+            # user_repositories.create_admin(db)
             db.commit()
             print("✅ Database initialized successfully")
         except Exception as e:
@@ -42,10 +40,6 @@ def init_db():
 async def startup_event():
     init_db()
 
-
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
-
-
 @app.get("/app")
 def read_root():
     return {"message": "Welcome to the Fixing Service API"}
@@ -61,5 +55,5 @@ def test_db_connection(db: Session = Depends(get_db)):
         return {"message": f"Database connection failed: {e}"}
 
 
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(auth_user.router)  # or prefix="/api"
+app.include_router(auth.router)
+app.include_router(auth_user.router)
