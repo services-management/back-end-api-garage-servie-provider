@@ -47,4 +47,4 @@ EXPOSE 8000
 # Replace 'gunicorn' or 'python app.py' with your specific startup command.
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 # OR a simpler Python/Flask app:
-# CMD ["python", "app.py"]
+# CMD ["python", "app.py"] 
