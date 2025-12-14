@@ -155,12 +155,23 @@ On first startup, the application automatically creates an admin user:
 
 ### Authentication
 - `POST /auth/login` - Login and get JWT token
-  - Body: `username` and `password` (form-data)
-  - Returns: `{"access_token": "...", "token_type": "bearer"}`
 
 ### Health Check
 - `GET /` - Test database connection
 - `GET /app` - Welcome message
+
+### Admin Management
+- `POST /admin/login`: Admin Login
+- `GET /admin/me`: Get Current Admin User Details
+- `POST /admin/`: Create a new Admin
+- `PUT /admin/{admin_id}`: Update Admin Details
+- `POST /admin/technical`: Provision Technical Account
+
+### Technical Staff
+- `POST /technical/login`: Technical Staff Login
+- `GET /technical/me`: Get Current Technical User Details
+- `PUT /technical/me`: Update My Technical User Details
+- `PATCH /technical/me/status`: Update Technical Status
 
 ## Development Commands
 

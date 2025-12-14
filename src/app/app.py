@@ -1,27 +1,40 @@
 from fastapi import FastAPI, Depends
-from src.routers import auth
-from src.routers import auth_user
+from src.routers import admin_router, technical_router
 from src.config.database import get_db, Base, engine, SessionLocal
-from src.repositories import  UserRepository
+from src.repositories.admin import  AdminRepository
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from src.schemas.admin import adminModel
 
-user_repositories = UserRepository()
+# admin_repositories = AdminRepository()
 app = FastAPI(
     title="Fixing Service API",
     description="Backend API for Garage Service Provider",
     version="1.0.0"
 
 )
-
+DEFAULT_ADMIN_USERNAME = "super_admin"
+DEFAULT_ADMIN_PASSWORD = "change_me_123"
 def init_db():
     """Initialize database tables"""
+    db = None
     try:
         # Create all tables
         Base.metadata.create_all(bind=engine)
         db = SessionLocal()
+        admin_repo = AdminRepository(db)
         try:
-            # user_repositories.create_admin(db)
+            if db.query(adminModel).filter(adminModel.role == "admin").first() is None:
+                print("No admin user found. Creating default admin...")
+                # 2. Call the repository method (which you must implement in AdminRepository)
+                admin_repo.create_default_admin(
+                    username=DEFAULT_ADMIN_USERNAME,
+                    password=DEFAULT_ADMIN_PASSWORD,
+                    email_phone="default@service.com", # Include other required fields
+                )
+                print(f"✅ Default admin created: {DEFAULT_ADMIN_USERNAME}")
+            else:
+                print("✅ Admin user already exists. Skipping creation.")
             db.commit()
             print("✅ Database initialized successfully")
         except Exception as e:
@@ -55,5 +68,5 @@ def test_db_connection(db: Session = Depends(get_db)):
         return {"message": f"Database connection failed: {e}"}
 
 
-app.include_router(auth.router)
-app.include_router(auth_user.router)
+app.include_router(admin_router)
+app.include_router(technical_router)

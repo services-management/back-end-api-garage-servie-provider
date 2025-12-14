@@ -1,3 +1,4 @@
-from .user_controller import UserController
+from .admin import AdminController
+from .technical import TechnicalController
 
-__all__ = ["UserController"]
+__all__ = ["AdminController","TechnicalController"]
