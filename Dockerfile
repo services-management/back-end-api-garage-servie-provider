@@ -39,12 +39,8 @@ COPY  . /usr/src/app
 # ----------------------------------------------------
 # 6. EXPOSE PORT
 # Specify the port the application runs on (matches the port in docker-compose.yml)
-EXPOSE 8000
+EXPOSE 8085
 
 # ----------------------------------------------------
 # 7. COMMAND TO RUN THE APPLICATION
-# Define the command to start your application.
-# Replace 'gunicorn' or 'python app.py' with your specific startup command.
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-# OR a simpler Python/Flask app:
-# CMD ["python", "app.py"] 
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8085"]
