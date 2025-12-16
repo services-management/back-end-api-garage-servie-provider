@@ -106,3 +106,40 @@ def get_current_admin_user(
         
     # 5. Return the Pydantic output model
     return AdminOut.model_validate(admin_model)
+
+def get_current_user_admin_or_technical(
+        credentials : HTTPAuthorizationCredentials = Depends(security),
+        db: Session = Depends(get_db)
+):
+    token = credentials.credentials
+    payload = decode_token(token)
+
+    role = str(payload.get("role") or "").lower()
+    sub = payload.get("sub")
+
+    if not sub:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Invalid token payload")
+    
+    try:
+        user_id = UUID(sub)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Invalid subject format")
+    
+    if role == "admin":
+        admin = AdminRepository(db).get_by_id(user_id)
+
+        if not admin:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Admin user not found")
+        
+        return AdminOut.model_validate(admin)
+    
+    
+    if role == "technical":
+        technical = TechnicalRepository(db).get_by_id(user_id)
+        if not technical:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Technical user not found")
+        return TechnicalOut.model_validate(technical)
+    
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")

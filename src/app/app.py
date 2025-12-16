@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends
-from src.routers import admin_router, technical_router
+from src.routers import admin_router, technical_router,category_router,inventory_router,product_router
 from src.config.database import get_db, Base, engine, SessionLocal
 from src.repositories.admin import  AdminRepository
 from sqlalchemy.orm import Session
@@ -70,3 +70,6 @@ def test_db_connection(db: Session = Depends(get_db)):
 
 app.include_router(admin_router)
 app.include_router(technical_router)
+app.include_router(product_router)
+app.include_router(category_router)
+app.include_router(inventory_router)

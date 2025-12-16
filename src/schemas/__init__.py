@@ -1,3 +1,4 @@
 from .admin import adminModel
 from .techincal import TechnicalModel
-__all__ = ["adminModel","TechnicalModel"]
+from .product import Product, Inventory , Category
+__all__ = ["adminModel","TechnicalModel","Product","Inventory","Category"]
