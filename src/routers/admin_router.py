@@ -7,26 +7,26 @@ from uuid import UUID # Correct type for IDs
 # Your Schemas (Pydantic Models for input/output)
 from src.models.admin_model import AdminLogin, AdminCreate, AdminUpdate, AdminOut
 from src.schemas.auth import Token
-from src.models.technical_model import TechnicalCreate, TechnicalOut # Assuming you have a TechnicalOut
+from src.models.technical_model import TechnicalCreate, TechnicalOut
 # Your Controller (Handles the business logic)
 from src.controller.admin_controller import AdminController
 # Your Repositories (Used for dependency injection)
 from src.repositories.admin_repository import AdminRepository
+
 from src.repositories.technical_repository import TechnicalRepository
 # Database dependency
-from src.config.database import get_db # Assuming this function yields the session
+from src.config.database import get_db  # Assuming this function yields the session
 from sqlalchemy.orm import Session
 # --- Security Dependencies ---
 from src.service.auth import create_access_token
-# Assuming a function to verify the current admin user from JWT
-from src.dependency.auth import get_current_admin_user 
-
+from src.dependency.auth import get_current_admin_user
 
 # --- Router Initialization ---
 router = APIRouter(
     prefix="/admin",
     tags=["Admin Management"],
 )
+
 
 # --- Dependency Injection for Controller ---
 def get_admin_controller(db:Session = Depends(get_db)):

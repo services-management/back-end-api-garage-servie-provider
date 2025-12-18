@@ -1,8 +1,21 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Numeric, Boolean, Date, Text
 from sqlalchemy.orm import relationship
 from src.config.database import Base
+from pydantic import BaseModel
+from typing import Optional
 
 class Category(Base):
+    class ProductCreate(BaseModel):
+        name: str
+        unit_cost: Optional[float] = None
+        selling_price: float
+        category_id: int
+
+    class ProductUpdate(BaseModel):
+        name: Optional[str] = None
+        unit_cost: Optional[float] = None
+        selling_price: Optional[float] = None
+        category_id: Optional[int] = None
     __tablename__ = "categories"
 
     category_id = Column(Integer, primary_key=True, index=True)

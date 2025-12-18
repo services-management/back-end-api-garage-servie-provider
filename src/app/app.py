@@ -1,10 +1,17 @@
 from fastapi import FastAPI, Depends
+from fastapi.security import HTTPBearer
 from src.routers import admin_router, technical_router,category_router,inventory_router,product_router
 from src.config.database import get_db, Base, engine, SessionLocal
-from src.repositories.admin_repository import  AdminRepository
+from src.repositories.admin_repository import AdminRepository
+from src.schemas.admin_model import adminModel
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from src.schemas.admin_model import adminModel
+
+# --- OAuth2 Security ---
+# Define the OAuth2 Bearer scheme for JWT authentication
+# FastAPI uses this scheme for Swagger UI documentation (/docs)
+# Users will see an "Authorize" button to input their JWT token
+security = HTTPBearer()
 
 # admin_repositories = AdminRepository()
 app = FastAPI(

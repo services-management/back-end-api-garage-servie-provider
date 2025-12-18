@@ -1,10 +1,11 @@
+
 from sqlalchemy.orm import Session
 from src.schemas.product import Product
 from src.repositories.base_repository import BaseRepository
 from src.repositories.inventory_repository import InventoryRepository
 from src.repositories.category_repository import CategoryRepository
-from typing import Optional
-from typing import List
+from typing import Optional, List
+
 class ProductRepository(BaseRepository):
     def __init__(self, db: Session):
         super().__init__(db, Product)

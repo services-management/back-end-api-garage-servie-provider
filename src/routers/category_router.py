@@ -10,7 +10,7 @@ from src.models.category_model import CategoryCreate, CategoryResponse
 from src.dependency.auth import get_current_admin_user, get_current_user_admin_or_technical
 
 router = APIRouter(
-    prefix="/category", tags =["Caterogy Management"]
+    prefix="/category", tags=["Category Management"]
 )
 
 @router.post(

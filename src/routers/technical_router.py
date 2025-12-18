@@ -3,18 +3,13 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import List
 
-# --- Imports from your project ---
-# Schemas (Pydantic Models)
 from src.models.technical_model import TechnicalLogin, TechnicalOut, TechnicalUpdate, TechnicalStatusUpdate
-from src.schemas.auth import Token # Token model is reused
-# Controller & Repositories
-from src.controller.technical_controller import TechnicalController # <-- ASSUMPTION: You need this controller
+from src.schemas.auth import Token
+from src.controller.technical_controller import TechnicalController
 from src.repositories.technical_repository import TechnicalRepository
-# Database dependency
 from src.config.database import get_db
-# Security/Auth Utilities
-from src.service.auth import create_access_token # JWT creation utility
-from src.dependency.auth import get_current_technical_user # <-- ASSUMPTION: You need this dependency
+from src.service.auth import create_access_token
+from src.dependency.auth import get_current_technical_user
 
 # --- Router Initialization ---
 router = APIRouter(

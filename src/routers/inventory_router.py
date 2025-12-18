@@ -1,4 +1,3 @@
-
 # src/api/routes/inventory.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -10,7 +9,7 @@ from src.models.inventory_model import InventoryUpdate, InventoryOut
 from src.dependency.auth import get_current_user_admin_or_technical, get_current_admin_user
 
 router = APIRouter(
-    prefix="/inventory",tags=["Inventory Management"]
+    prefix="/inventory", tags=["Inventory Management"]
 )
 
 @router.patch(

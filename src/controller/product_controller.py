@@ -3,7 +3,7 @@ from src.repositories.product_repository import ProductRepository
 from src.repositories.category_repository import CategoryRepository
 from src.repositories.inventory_repository import InventoryRepository
 from src.schemas.product import Product
-# from src.schemas.product import ProductCreate, ProductUpdate # Assuming schemas exist
+from src.schemas.product import ProductCreate, ProductUpdate
 from typing import Optional, List
 
 class ProductControll:

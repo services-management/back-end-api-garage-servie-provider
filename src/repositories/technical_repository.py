@@ -1,9 +1,10 @@
+
 from sqlalchemy.orm import Session
 from typing import Optional, List, Union
 from sqlalchemy.exc import IntegrityError
 from src.schemas.techincal import TechnicalModel
-from src.models.technical_model import TechnicalCreate, TechnicalUpdate # Assuming AdminUpdate exists
-from src.utils.hash_password import hash_password 
+from src.models.technical_model import TechnicalCreate, TechnicalUpdate
+from src.utils.hash_password import hash_password
 
 class TechnicalRepository:
     """Implements the data access logic for the Technical entity."""
