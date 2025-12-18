@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from src.config.database import get_db
-from src.controller.category import CategoryControll
-from src.models.category import CategoryCreate, CategoryResponse
+from src.controller.category_controller import CategoryControll
+from src.models.category_model import CategoryCreate, CategoryResponse
 from src.dependency.auth import get_current_admin_user, get_current_user_admin_or_technical
 
 router = APIRouter(

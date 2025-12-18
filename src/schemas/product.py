@@ -5,7 +5,7 @@ from src.config.database import Base
 class Category(Base):
     __tablename__ = "categories"
 
-    categoryID = Column(Integer, primary_key=True, index=True)
+    category_id = Column(Integer, primary_key=True, index=True)
     name = Column(String,nullable=False)
     description = Column(Text, nullable=True)
     # Relationship to Product (One-to-Many)
@@ -19,9 +19,9 @@ class Product(Base):
     unit_cost = Column(Numeric(10,2),nullable=True)
     selling_price = Column(Numeric(10,2), nullable=False)
     # foreign key 
-    category_id = Column(Integer, ForeignKey("categories.categoryID"))
+    category_id = Column(Integer, ForeignKey("categories.category_id"))
     # relation
-    Category = relationship("Category", back_populates="products")
+    category = relationship("Category", back_populates="products")
     # one to one relationship with inventory
     inventory = relationship("Inventory", back_populates="product", uselist=False)
 

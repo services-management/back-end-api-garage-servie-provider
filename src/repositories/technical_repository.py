@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from typing import Optional, List, Union
 from sqlalchemy.exc import IntegrityError
 from src.schemas.techincal import TechnicalModel
-from src.models.technical import TechnicalCreate, TechnicalUpdate # Assuming AdminUpdate exists
+from src.models.technical_model import TechnicalCreate, TechnicalUpdate # Assuming AdminUpdate exists
 from src.utils.hash_password import hash_password 
 
 class TechnicalRepository:
@@ -14,6 +14,10 @@ class TechnicalRepository:
     def get(self, id: int) -> Optional[TechnicalModel]:
         """Retrieves a Technical account by its unique ID."""
         return self.db.query(TechnicalModel).get(id)
+
+    def get_by_id(self, id: int) -> Optional[TechnicalModel]:
+        """Retrieves a Technical account by its unique ID."""
+        return self.db.query(TechnicalModel).filter(TechnicalModel.id == id).first()
 
     def get_by_username(self, username: str) -> Optional[TechnicalModel]:
         """Retrieves a Technical account by its unique username."""

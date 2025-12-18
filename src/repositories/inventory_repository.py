@@ -1,6 +1,6 @@
 from src.schemas.product import Inventory
 from sqlalchemy.orm import Session
-from src.repositories.baserepository import BaseRepository
+from src.repositories.base_repository import BaseRepository
 from datetime import date
 from typing import Optional
 

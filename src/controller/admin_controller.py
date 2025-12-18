@@ -1,14 +1,14 @@
 from fastapi import HTTPException, status
 from typing import List, Optional
-from src.repositories.admin import AdminRepository
-from src.repositories.technical import TechnicalRepository
-from src.models.admin import AdminLogin, AdminCreate, AdminUpdate
-from src.schemas.admin import adminModel
+from src.repositories.admin_repository import AdminRepository
+from src.repositories.technical_repository import TechnicalRepository
+from src.models.admin_model import AdminLogin, AdminCreate, AdminUpdate
+from src.schemas.admin_model import adminModel
 from src.schemas.techincal import TechnicalModel
-from src.models.technical import TechnicalCreate
+from src.models.technical_model import TechnicalCreate
 from src.utils.hash_password import hash_password
 from src.utils.verify_password import verify_password
-from src.schemas.admin import adminModel
+from src.schemas.admin_model import adminModel
 from uuid import UUID
 class AdminController:
     """Handles the business logic for admin authentication and management."""

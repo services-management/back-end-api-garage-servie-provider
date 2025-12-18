@@ -5,14 +5,14 @@ from uuid import UUID # Correct type for IDs
 
 # --- Imports from your project ---
 # Your Schemas (Pydantic Models for input/output)
-from src.models.admin import AdminLogin, AdminCreate, AdminUpdate, AdminOut
+from src.models.admin_model import AdminLogin, AdminCreate, AdminUpdate, AdminOut
 from src.schemas.auth import Token
-from src.models.technical import TechnicalCreate, TechnicalOut # Assuming you have a TechnicalOut
+from src.models.technical_model import TechnicalCreate, TechnicalOut # Assuming you have a TechnicalOut
 # Your Controller (Handles the business logic)
-from src.controller.admin import AdminController
+from src.controller.admin_controller import AdminController
 # Your Repositories (Used for dependency injection)
-from src.repositories.admin import AdminRepository
-from src.repositories.technical import TechnicalRepository
+from src.repositories.admin_repository import AdminRepository
+from src.repositories.technical_repository import TechnicalRepository
 # Database dependency
 from src.config.database import get_db # Assuming this function yields the session
 from sqlalchemy.orm import Session

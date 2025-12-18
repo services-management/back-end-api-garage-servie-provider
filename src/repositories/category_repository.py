@@ -1,6 +1,6 @@
 from src.schemas.product import Category
 from sqlalchemy.orm import Session
-from src.repositories.baserepository import BaseRepository
+from src.repositories.base_repository import BaseRepository
 
 class CategoryRepository(BaseRepository):
     def __init__(self, db: Session):
@@ -8,7 +8,7 @@ class CategoryRepository(BaseRepository):
 
     # --- Get by ID ---
     def get_by_id(self, category_id: int) -> Category | None:
-        return self.db.query(Category).filter(Category.categoryID == category_id).first()
+        return self.db.query(Category).filter(Category.category_id == category_id).first()
 
     # --- Get by Name ---
     def get_by_name(self, name: str) -> Category | None:

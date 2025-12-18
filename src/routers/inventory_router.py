@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from src.config.database import get_db
-from src.controller.inventory import InventoryControll
-from src.models.inventory import InventoryUpdate, InventoryOut
+from src.controller.inventory_controller import InventoryControll
+from src.models.inventory_model import InventoryUpdate, InventoryOut
 from src.dependency.auth import get_current_user_admin_or_technical, get_current_admin_user
 
 router = APIRouter(
@@ -45,7 +45,7 @@ def update_inventory_fields(product_id: int, payload: InventoryUpdate, db: Sessi
         product_id=product_id,
         current_stock=payload.current_stock,
         min_stock_level=payload.min_stock_level,
-        last_restock_date=payload.last_restock_date,  # ensure consistent field name
+        last_restock_data=payload.last_restock_data,  # ensure consistent field name
     )
     if not inv:
         raise HTTPException(status_code=404, detail="Inventory record not found")
