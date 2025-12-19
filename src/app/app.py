@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends
 from fastapi.security import HTTPBearer
+from fastapi.middleware.cors import CORSMiddleware
 from src.routers import admin_router, technical_router,category_router,inventory_router,product_router
 from src.config.database import get_db, Base, engine, SessionLocal
 from src.repositories.admin_repository import AdminRepository
@@ -19,6 +20,18 @@ app = FastAPI(
     description="Backend API for Garage Service Provider",
     version="1.0.0"
 
+)
+origins = [
+    "http://localhost:3000",      # Local React/Next.js
+    "https://your-app.vercel.app" # Production frontend
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True, 
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 DEFAULT_ADMIN_USERNAME = "super_admin"
 DEFAULT_ADMIN_PASSWORD = "change_me_123"
