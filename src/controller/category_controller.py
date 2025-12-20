@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from src.repositories.categoryrepository import CategoryRepository
+from src.repositories.categoryrepository_repositorie import CategoryRepository
 from typing import Optional, List
 
 class CategoryControll:

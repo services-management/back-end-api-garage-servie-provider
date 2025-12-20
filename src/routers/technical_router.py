@@ -5,11 +5,11 @@ from typing import List
 
 # --- Imports from your project ---
 # Schemas (Pydantic Models)
-from src.models.technical import TechnicalLogin, TechnicalOut, TechnicalUpdate, TechnicalStatusUpdate
+from src.models.technical_model import TechnicalLogin, TechnicalOut, TechnicalUpdate, TechnicalStatusUpdate
 from src.schemas.auth import Token # Token model is reused
 # Controller & Repositories
-from src.controller.technical import TechnicalController # <-- ASSUMPTION: You need this controller
-from src.repositories.technical import TechnicalRepository
+from src.controller.technical_controller import TechnicalController # <-- ASSUMPTION: You need this controller
+from src.repositories.technical_repositorie import TechnicalRepository
 # Database dependency
 from src.config.database import get_db
 # Security/Auth Utilities

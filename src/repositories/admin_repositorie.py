@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from src.schemas.admin import adminModel
 from src.utils import hash_password
-from src.models.admin import AdminCreate
+from src.models.admin_model import AdminCreate
 from src.utils.hash_password import hash_password
 import uuid
 class AdminRepository:

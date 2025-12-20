@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from src.app.app import app
 from src.dependency import get_db, get_admin_controller
-from src.controller.admin import AdminController
+from src.controller.admin_controller import AdminController
 import uuid
 
 # A fixture/function that yields a test database session

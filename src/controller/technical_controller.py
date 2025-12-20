@@ -1,5 +1,5 @@
-from src.repositories.technical import TechnicalRepository
-from src.models.technical import TechnicalUpdate,TechnicalStatusUpdate,TechnicalLogin # Added TechnicalUpdate
+from src.repositories.technical_repositorie import TechnicalRepository
+from src.models.technical_model import TechnicalUpdate,TechnicalStatusUpdate,TechnicalLogin # Added TechnicalUpdate
 from src.utils.verify_password import verify_password
 from src.utils.hash_password import hash_password # Added for updates
 from src.schemas.techincal import TechnicalModel# Added TechnicalStatusUpdate
