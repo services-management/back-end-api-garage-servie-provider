@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from src.config.database import get_db
-from src.controller.product import ProductControll
-from src.models.product import ProductCreate, ProductUpdate , ProductResponse # ORM model (for response via orm_mode)
+from src.controller.product_controller import ProductControll
+from src.models.product_model import ProductCreate, ProductUpdate , ProductResponse # ORM model (for response via orm_mode)
 from pydantic import BaseModel
 from src.dependency.auth import get_current_admin_user ,get_current_user_admin_or_technical
 

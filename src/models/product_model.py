@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 from typing import Optional
-from src.models.category import CategoryResponse # Import nested schema
+from src.models.category_model import CategoryResponse # Import nested schema
 
 # --- Nested Inventory Schema ---
 class InventorySnapshot(BaseModel):

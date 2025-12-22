@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends
 from src.routers import admin_router, technical_router,category_router,inventory_router,product_router
 from src.config.database import get_db, Base, engine, SessionLocal
-from src.repositories.admin import  AdminRepository
+from src.repositories.admin_repositorie import  AdminRepository
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from src.schemas.admin import adminModel
