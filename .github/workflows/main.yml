@@ -1,0 +1,74 @@
+name: Docker Build and Push
+
+on:
+  push:
+    tags:
+      - 'dev-v*'
+      - 'stg-v*'
+      - 'prod-v*'
+
+env:
+  REGISTRY: reaksa7236/garas-service-api
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Registry
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract Version and Tag
+        id: extract
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          echo "Full Tag: $TAG"
+
+          if [[ "$TAG" == dev-v* ]]; then
+            VERSION=${TAG#dev-v}
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+            echo "ENV=dev" >> $GITHUB_OUTPUT
+          elif [[ "$TAG" == stg-v* ]]; then
+            VERSION=${TAG#stg-v}
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+            echo "ENV=stg" >> $GITHUB_OUTPUT
+          elif [[ "$TAG" == prod-v* ]]; then
+            VERSION=${TAG#prod-v}
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+            echo "ENV=prod" >> $GITHUB_OUTPUT
+          else
+            echo "Invalid tag format"
+            exit 1
+          fi
+
+      - name: Build and Push Docker Images
+        run: |
+          ENV=${{ steps.extract.outputs.ENV }}
+          VERSION=${{ steps.extract.outputs.VERSION }}
+
+          if [[ "$ENV" == "dev" ]]; then
+            docker build -t $REGISTRY:dev-$VERSION .
+            docker push $REGISTRY:dev-$VERSION
+            docker build -t $REGISTRY:master .
+            docker push $REGISTRY:master
+          elif [[ "$ENV" == "stg" ]]; then
+            docker build -t $REGISTRY:stg-$VERSION .
+            docker push $REGISTRY:stg-$VERSION
+            docker build -t $REGISTRY:testing .
+            docker push $REGISTRY:testing
+          elif [[ "$ENV" == "prod" ]]; then
+            docker build -t $REGISTRY:prod-$VERSION .
+            docker push $REGISTRY:prod-$VERSION
+            docker build -t $REGISTRY:production .
+            docker push $REGISTRY:production
+          fi
