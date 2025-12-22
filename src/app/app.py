@@ -5,7 +5,7 @@ from src.config.database import get_db, Base, engine, SessionLocal
 from src.repositories import  UserRepository
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-
+from fastapi.middleware.cors import CORSMiddleware
 user_repositories = UserRepository()
 app = FastAPI(
     title="Fixing Service API",
@@ -13,7 +13,16 @@ app = FastAPI(
     version="1.0.0"
 
 )
-
+app.add_middleware(
+    CORSMiddleware,
+    # Add both local and production frontend URLs here
+    allow_origins=[
+        "http://localhost:3000", 
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 def init_db():
     """Initialize database tables"""
     try:
