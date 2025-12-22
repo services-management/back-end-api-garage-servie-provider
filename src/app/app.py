@@ -5,13 +5,23 @@ from src.repositories.admin_repositorie import  AdminRepository
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from src.schemas.admin import adminModel
-
+from fastapi.middleware.cors import CORSMiddleware
 # admin_repositories = AdminRepository()
 app = FastAPI(
     title="Fixing Service API",
     description="Backend API for Garage Service Provider",
     version="1.0.0"
 
+)
+origins = [
+    "http://localhost:3000",      # Your local React/Next.js frontend  
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # Allows all origins, change to specific domain in production
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allows all headers
 )
 DEFAULT_ADMIN_USERNAME = "super_admin"
 DEFAULT_ADMIN_PASSWORD = "change_me_123"
