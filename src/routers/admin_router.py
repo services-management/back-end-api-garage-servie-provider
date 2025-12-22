@@ -11,7 +11,7 @@ from src.models.technical_model import TechnicalCreate, TechnicalOut # Assuming 
 # Your Controller (Handles the business logic)
 from src.controller.admin_controller import AdminController
 # Your Repositories (Used for dependency injection)
-from src.repositories.admin_repositorie import AdminRepository
+from src.repositories.admin_repositories import AdminRepository
 from src.repositories.technical_repositorie import TechnicalRepository
 # Database dependency
 from src.config.database import get_db # Assuming this function yields the session

@@ -6,7 +6,7 @@ from uuid import UUID
 
 # --- Project Imports ---
 from src.config.database import get_db # Your database session dependency
-from src.repositories.admin_repositorie import AdminRepository # The repo to fetch the admin
+from src.repositories.admin_repositories import AdminRepository # The repo to fetch the admin
 from src.models.admin_model import AdminOut # The secure output Pydantic model
 from src.service.auth import decode_token # The utility we just created
 from src.repositories.technical_repositorie import TechnicalRepository 

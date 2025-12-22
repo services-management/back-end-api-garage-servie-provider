@@ -1,6 +1,6 @@
 from src.schemas.product import Category
 from sqlalchemy.orm import Session
-from src.repositories.baserepository_repositorie import BaseRepository
+from src.repositories.base_repositories import BaseRepository
 
 class CategoryRepository(BaseRepository):
     def __init__(self, db: Session):

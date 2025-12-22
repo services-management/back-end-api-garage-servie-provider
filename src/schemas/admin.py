@@ -6,7 +6,7 @@ from src.config.database import Base
 
 class adminModel(Base):
     """SQLAlchemy User model for PostgreSQL database. Designed for Admin users."""
-    __tablename__ = "Admin"
+    __tablename__ = "admin"
     
     # primary key (Used as the unique identifier in the JWT)
     admin_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)

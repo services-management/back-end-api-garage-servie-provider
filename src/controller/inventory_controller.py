@@ -2,7 +2,7 @@
 # src/controller/inventory.py
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from src.repositories.inventoryrepository_repositorie import InventoryRepository
+from src.repositories.inventory_repositories import InventoryRepository
 
 class InventoryControll:
     def __init__(self, db: Session):

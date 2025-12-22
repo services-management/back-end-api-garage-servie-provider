@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session
 from src.schemas.product import Product
-from src.repositories.baserepository_repositorie import BaseRepository
-from src.repositories.inventoryrepository_repositorie import InventoryRepository
-from src.repositories.categoryrepository_repositorie import CategoryRepository
+from src.repositories.base_repositories import BaseRepository
+from src.repositories.inventory_repositories import InventoryRepository
+from src.repositories.category_repositories import CategoryRepository
 from typing import Optional
 from typing import List
 class ProductRepository(BaseRepository):

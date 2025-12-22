@@ -8,7 +8,7 @@ TechnicalStatusEnum = Enum("free","busy","off_duty", name = 'technical_status_en
 
 class TechnicalModel(Base):
     '''sqlAlchemy model for Technical accounts'''
-    __tablename__ = "Technical"
+    __tablename__ = "technical"
     # primary key
     technical_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,index=True)
 

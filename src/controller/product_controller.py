@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
-from src.repositories.productrepository_repositorie import ProductRepository
-from src.repositories.categoryrepository_repositorie import CategoryRepository
-from src.repositories.inventoryrepository_repositorie import InventoryRepository
+from src.repositories.product_repositories import ProductRepository
+from src.repositories.category_repositories import CategoryRepository
+from src.repositories.inventory_repositories import InventoryRepository
 from src.schemas.product import Product
 # from src.schemas.product import ProductCreate, ProductUpdate # Assuming schemas exist
 from typing import Optional, List
