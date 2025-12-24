@@ -1,62 +1,61 @@
-
-# src/api/routes/inventory.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 
 from src.config.database import get_db
-from src.controller.inventory_controller import InventoryControll
-from src.models.inventory_model import InventoryUpdate, InventoryOut
-from src.dependency.auth import get_current_user_admin_or_technical, get_current_admin_user
+from src.controller.inventory_controller import InventoryController
+from src.repositories.inventory_repositories import InventoryRepository
+from src.models.inventory_model import InventoryOut, InventoryUpdate, InventorySnapshot
 
 router = APIRouter(
-    prefix="/inventory",tags=["Inventory Management"]
+    prefix="/inventory",
+    tags=["Inventory Management"]
 )
 
-@router.patch(
-    "/{product_id}/stock",
-    response_model=InventoryOut,
-    dependencies=[Depends(get_current_admin_user)]
-)
-def set_current_stock(product_id: int, payload: InventoryUpdate, db: Session = Depends(get_db)):
-    """
-    Overwrite current stock to a specific value (admin-only).
-    """
-    if payload.current_stock is None:
-        raise HTTPException(status_code=400, detail="current_stock is required for this endpoint.")
-    svc = InventoryControll(db)
+@router.get("/{product_id}", response_model=InventoryOut)
+def get_inventory_by_product(product_id: int, db: Session = Depends(get_db)):
+    """Fetch the inventory details for a specific product."""
+    controller = InventoryRepository(db)
+    inventory = controller.get_by_product_id(product_id)
+    if not inventory:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail=f"No inventory record found for product ID {product_id}"
+        )
+    return inventory
+
+@router.patch("/{product_id}/stock", response_model=InventoryOut)
+def set_stock_level(product_id: int, update_data: InventoryUpdate, db: Session = Depends(get_db)):
+    """Directly set the current stock level."""
+    if update_data.current_stock is None:
+        raise HTTPException(status_code=400, detail="current_stock is required for this operation")
+    
     try:
-        # Overwrite, not add
-        return svc.set_current_stock(product_id=product_id, new_stock=payload.current_stock)
+        controller = InventoryController(db)
+        return controller.set_current_stock(product_id, update_data.current_stock)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.patch(
-    "/{product_id}",
-    response_model=InventoryOut,
-    dependencies=[Depends(get_current_user_admin_or_technical)]
-)
-def update_inventory_fields(product_id: int, payload: InventoryUpdate, db: Session = Depends(get_db)):
-    """
-    Update selected inventory fields (partial update).
-    """
-    svc = InventoryControll(db)
-    inv = svc.inventory_repo.update(
-        product_id=product_id,
-        current_stock=payload.current_stock,
-        min_stock_level=payload.min_stock_level,
-        last_restock_date=payload.last_restock_date,  # ensure consistent field name
-    )
-    if not inv:
-        raise HTTPException(status_code=404, detail="Inventory record not found")
-    return inv
+@router.post("/{product_id}/restock", response_model=InventoryOut)
+def add_incoming_stock(product_id: int, quantity: float, db: Session = Depends(get_db)):
+    """Add to existing stock (e.g., after receiving a shipment)."""
+    try:
+        controller = InventoryController(db)
+        return controller.record_incoming_stock(product_id, quantity)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-@router.get(
-    "/reorder",
-    response_model=List[int],
-    dependencies=[Depends(get_current_user_admin_or_technical)]
-)
-def check_for_reorder(db: Session = Depends(get_db)):
-    svc = InventoryControll(db)
-    return svc.check_for_reorder()
+@router.post("/{product_id}/deduct", response_model=InventoryOut)
+def deduct_stock_level(product_id: int, quantity: float, db: Session = Depends(get_db)):
+    """Deduct stock (e.g., after a sale or usage)."""
+    try:
+        controller = InventoryController(db)
+        return controller.process_stock_deduction(product_id, quantity)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
+@router.get("/alerts/low-stock", response_model=List[int])
+def get_low_stock_product_ids(db: Session = Depends(get_db)):
+    """Get a list of Product IDs where stock is at or below the minimum level."""
+    controller = InventoryController(db)
+    return controller.check_for_reorder()

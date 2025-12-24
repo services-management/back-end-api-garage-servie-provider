@@ -1,49 +1,49 @@
-from src.schemas.product import Category
-from sqlalchemy.orm import Session
-from src.repositories.base_repositories import BaseRepository
 
-class CategoryRepository(BaseRepository):
+# src/repositories/category_repository.py
+
+from typing import Optional, List
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+
+from src.repositories.base_repositories import BaseRepository
+from src.schemas.product import Category  # <-- use the SQLAlchemy model
+
+
+class CategoryRepository(BaseRepository[Category]):
     def __init__(self, db: Session):
         super().__init__(db, Category)
 
-    # --- Get by ID ---
-    def get_by_id(self, category_id: int) -> Category | None:
-        return self.db.query(Category).filter(Category.categoryID == category_id).first()
+    # --- Get by ID (use BaseRepository.get) ---
+    def get_by_id(self, category_id: int) -> Optional[Category]:
+        return super().get(category_id)
 
     # --- Get by Name ---
-    def get_by_name(self, name: str) -> Category | None:
-        return self.db.query(Category).filter(Category.name == name).first()
+    def get_by_name(self, name: str) -> Optional[Category]:
+        stmt = select(Category).where(Category.name == name)
+        return self.db.execute(stmt).scalars().first()
 
     # --- List all with optional pagination ---
-    def list(self, skip: int = 0, limit: int = 100) -> list[Category]:
-        return self.db.query(Category).offset(skip).limit(limit).all()
+    def list(self, skip: int = 0, limit: int = 100) -> List[Category]:
+        # Uses SQLAlchemy 2.0 select/scalars pattern
+        stmt = select(Category).offset(skip).limit(limit)
+        return list(self.db.execute(stmt).scalars().all())
 
     # --- Create category ---
-    def create(self, name: str, description: str | None = None) -> Category:
+    def create(self, name: str, description: Optional[str] = None) -> Category:
         new_category = Category(name=name, description=description)
-        self.db.add(new_category)
-        self.db.commit()
-        self.db.refresh(new_category)
-        return new_category
+        return super().add(new_category)
 
     # --- Update category ---
-    def update(self, category_id: int, name: str | None = None, description: str | None = None) -> Category | None:
-        category = self.get_by_id(category_id)
-        if not category:
-            return None
+    def update(self, category_id: int, name: Optional[str] = None, description: Optional[str] = None) -> Optional[Category]:
+        update_data = {}
         if name is not None:
-            category.name = name
+            update_data["name"] = name
         if description is not None:
-            category.description = description
-        self.db.commit()
-        self.db.refresh(category)
-        return category
+            update_data["description"] = description
+        # BaseRepository.update expects (id, data)
+        return super().update(category_id, update_data)
 
     # --- Delete category ---
     def delete(self, category_id: int) -> bool:
-        category = self.get_by_id(category_id)
-        if not category:
-            return False
-        self.db.delete(category)
-        self.db.commit()
-        return True
+        # BaseRepository.delete expects (id)
+        return super().delete(category_id)

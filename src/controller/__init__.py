@@ -1,8 +1,8 @@
 from .admin_controller import AdminController
 from .technical_controller import TechnicalController
-from .category_controller import CategoryControll
-from .inventory_controller import InventoryControll
-from .product_controller import ProductControll
+from .category_controller import CategoryController
+from .inventory_controller import InventoryController
+from .product_controller import ProductController
 
 
-__all__ = ["AdminController","TechnicalController","CategoryControll","InventoryControll","ProductControll"]
+__all__ = ["AdminController","TechnicalController","CategoryController","InventoryController","ProductController"]

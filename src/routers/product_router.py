@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from src.config.database import get_db
-from src.controller.product_controller import ProductControll
+from src.controller.product_controller import ProductController
 from src.models.product_model import ProductCreate, ProductUpdate , ProductResponse # ORM model (for response via orm_mode)
 from pydantic import BaseModel
 from src.dependency.auth import get_current_admin_user ,get_current_user_admin_or_technical
@@ -20,7 +20,7 @@ router = APIRouter(
              dependencies=[Depends(get_current_admin_user)],
              )
 def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
-    svc = ProductControll(db)
+    svc = ProductController(db)
     try:
         product = svc.create_product(
             name=payload.name,
@@ -37,7 +37,7 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
             response_model= ProductResponse,
             dependencies=[Depends(get_current_user_admin_or_technical)],)
 def get_product(product_id: int, db: Session = Depends(get_db)):
-    svc = ProductControll(db)
+    svc = ProductController(db)
     product = svc.get_product(product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -50,7 +50,7 @@ def list_products(
     limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db)
 ):
-    svc = ProductControll(db)
+    svc = ProductController(db)
     return svc.list_product(skip=skip, limit=limit)
 
 @router.get("/by-category/{category_id}", 
@@ -62,7 +62,7 @@ def list_products_by_category(
     limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db)
 ):
-    svc = ProductControll(db)
+    svc = ProductController(db)
     try:
         return svc.list_product_by_category(category_id, skip=skip, limit=limit)
     except ValueError as e:
@@ -76,7 +76,7 @@ def update_product(
     payload: ProductUpdate,
     db: Session = Depends(get_db)
 ):
-    svc = ProductControll(db)
+    svc = ProductController(db)
     try:
         updated = svc.update_product(
             product_id=product_id,
@@ -95,7 +95,7 @@ def update_product(
                status_code=204,
                dependencies=[Depends(get_current_admin_user)],)
 def delete_product(product_id: int, db: Session = Depends(get_db)):
-    svc = ProductControll(db)
+    svc = ProductController(db)
     deleted = svc.delete_product(product_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Product not found")
