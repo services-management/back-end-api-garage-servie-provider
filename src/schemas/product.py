@@ -21,7 +21,7 @@ class Product(Base):
     # foreign key 
     category_id = Column(Integer, ForeignKey("categories.categoryID"))
     # relation
-    Category = relationship("Category", back_populates="products")
+    category = relationship("Category", back_populates="products")
     # one to one relationship with inventory
     inventory = relationship("Inventory", back_populates="product", uselist=False)
 

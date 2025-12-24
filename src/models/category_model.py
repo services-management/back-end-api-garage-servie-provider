@@ -12,9 +12,11 @@ class CategoryBase(BaseModel):
 class CategoryCreate(CategoryBase):
     pass
 
+class CategoryUpdate(CategoryBase):
+    pass
 # Output Schema for API responses (Includes database-generated ID)
 class CategoryResponse(CategoryBase):
-    category_id: int
+    categoryID: int
 
     # Config tells Pydantic to read data from the ORM object (required for SQLAlchemy)
     class Config:

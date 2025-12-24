@@ -4,8 +4,10 @@ from src.config.database import get_db, Base, engine, SessionLocal
 from src.repositories.admin_repositories import  AdminRepository
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from src.schemas.admin import adminModel
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import configure_mappers
+from src.schemas import adminModel
+from src.schemas.product import Product, Category, Inventory
 # admin_repositories = AdminRepository()
 app = FastAPI(
     title="Fixing Service API",
@@ -13,8 +15,9 @@ app = FastAPI(
     version="1.0.0"
 
 )
+configure_mappers()
 origins = [
-    "http://localhost:3000",      # Your local React/Next.js frontend  
+    "https://garas-admin.domrey.online/",      # Your local React/Next.js frontend  
 ]
 app.add_middleware(
     CORSMiddleware,
