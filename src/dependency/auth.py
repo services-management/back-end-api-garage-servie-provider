@@ -1,11 +1,11 @@
 # src/dependencies/auth.py
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from uuid import UUID
-
+from typing import Optional, Union
 # --- Project Imports ---
-from src.config.database import get_db # Your database session dependency
+from src.config.database import get_db #  database session dependency
 from src.repositories.admin_repositories import AdminRepository # The repo to fetch the admin
 from src.models.admin_model import AdminOut # The secure output Pydantic model
 from src.service.auth import decode_token # The utility we just created
@@ -143,3 +143,52 @@ def get_current_user_admin_or_technical(
         return TechnicalOut.model_validate(technical)
     
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+async def get_optional_user(
+        request: Request,
+        db:Session = Depends(get_db),
+)-> Optional[Union[AdminOut,TechnicalOut]]:
+    
+    """
+    Check the header manually. 
+    - No Header -> Return None (Guest)
+    - Valid Header -> Return User (Admin or Technical)
+    - Invalid Header -> Raise 401 (Prevent Hacking)
+    """
+    auth_header = request.headers.get("Authorization")
+
+    # 1 . if no token is provided, they are a Guest. Return None
+    if not auth_header:
+        return None
+    
+    # 2. If token is provided, validation it strictly
+    try:
+        schema, token = auth_header.split()
+        if schema.lower() != "bearer":
+            return None
+        
+        payload = decode_token(token)
+        role = str(payload.get("role") or "").lower()
+        sub = payload.get("sub")
+
+        if not sub:
+            return None
+        user_id = UUID(sub)
+
+        if role == "admin":
+            admin = AdminRepository(db).get_by_id(user_id)
+            return AdminOut.model_validate(admin) if admin else None
+
+        if role == "techincal":
+            tech = TechnicalRepository(db).get(user_id)
+            return TechnicalOut.model_validate(tech) if tech else None
+        
+        return None
+    
+    except Exception:
+        # If the token is corrupted, expired, or fake, we raise 401.
+        # This ensures that if someone TRIES to authenticate but fails, we tell them.
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Invalid authentication credentials"
+        )

@@ -25,7 +25,6 @@ class Product(Base):
     # one to one relationship with inventory
     inventory = relationship("Inventory", back_populates="product", uselist=False)
 
-
 class Inventory(Base):
     __tablename__ = 'inventory'
 
