@@ -24,6 +24,8 @@ class Product(Base):
     category = relationship("Category", back_populates="products")
     # one to one relationship with inventory
     inventory = relationship("Inventory", back_populates="product", uselist=False)
+    # relationship with service associations
+    service_associations = relationship("ServiceProductAssociation", back_populates="product")
 
 
 class Inventory(Base):
@@ -36,3 +38,33 @@ class Inventory(Base):
 
     # relation
     product = relationship("Product",back_populates='inventory')
+
+
+class Service(Base):
+    __tablename__ = "services"
+    
+    service_id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, index=True, nullable=False)
+    description = Column(Text, nullable=True)
+    image_url = Column(String(250), nullable=False)
+    price = Column(Numeric(10, 2), nullable=False)
+    duration_minutes = Column(Integer, nullable=False)
+    is_available = Column(Boolean, server_default='True', nullable=False)
+    
+    associations = relationship(
+        "ServiceProductAssociation",
+        back_populates="service",
+        cascade="all, delete-orphan"
+    )
+
+
+class ServiceProductAssociation(Base):
+    __tablename__ = "service_products"
+    
+    service_id = Column(Integer, ForeignKey('services.service_id'), primary_key=True)
+    product_id = Column(Integer, ForeignKey('products.product_id'), primary_key=True)
+    quantity_required = Column(Integer, nullable=False)
+    is_optional = Column(Boolean, nullable=False, default=False)
+
+    service = relationship("Service", back_populates="associations")
+    product = relationship("Product", back_populates="service_associations")
