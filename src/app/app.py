@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends
-from src.routers import admin_router, technical_router,category_router,inventory_router,product_router
+from src.routers import admin_router, technical_router, category_router, inventory_router, product_router, service_router
 from src.config.database import get_db, Base, engine, SessionLocal
 from src.repositories.admin_repositories import  AdminRepository
 from sqlalchemy.orm import Session
@@ -7,7 +7,7 @@ from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import configure_mappers
 from src.schemas import adminModel
-from src.schemas.product import Product, Category, Inventory
+from src.schemas.product import Product, Category, Inventory, Service, ServiceProductAssociation
 # admin_repositories = AdminRepository()
 app = FastAPI(
     title="Fixing Service API",
@@ -86,3 +86,4 @@ app.include_router(technical_router)
 app.include_router(product_router)
 app.include_router(category_router)
 app.include_router(inventory_router)
+app.include_router(service_router)
