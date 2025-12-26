@@ -7,7 +7,7 @@ from typing import List
 from src.config.database import get_db
 from src.controller.category_controller import CategoryController  # fixed name
 from src.models.category_model import CategoryCreate, CategoryResponse, CategoryUpdate  # use schemas, not models
-from src.dependency.auth import get_current_admin_user, get_current_user_admin_or_technical
+from src.dependency.auth import get_current_admin_user, get_optional_user
 
 router = APIRouter(
     prefix="/category",
@@ -40,11 +40,11 @@ def create_category(
 @router.get(
     "/{category_id}",
     response_model=CategoryResponse,
-    dependencies=[Depends(get_current_user_admin_or_technical)],
 )
 def get_category(
     category_id: int,
     ctrl: CategoryController = Depends(get_category_controller),
+    current_user = Depends(get_optional_user) 
 ):
     try:
         return ctrl.get_category(category_id)
@@ -58,12 +58,12 @@ def get_category(
 @router.get(
     "/",
     response_model=List[CategoryResponse],
-    dependencies=[Depends(get_current_user_admin_or_technical)],
 )
 def list_categories(
     skip: int = 0,
     limit: int = 100,
     ctrl: CategoryController = Depends(get_category_controller),
+    current_user = Depends(get_optional_user),
 ):
     try:
         return ctrl.list_category(skip=skip, limit=limit)

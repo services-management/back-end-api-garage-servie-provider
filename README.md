@@ -173,6 +173,28 @@ On first startup, the application automatically creates an admin user:
 - `PUT /technical/me`: Update My Technical User Details
 - `PATCH /technical/me/status`: Update Technical Status
 
+### Category Management
+- `POST /category/`: Create a new category (Requires admin authentication)
+- `GET /category/{category_id}`: Get a specific category by ID
+- `GET /category/`: List all categories
+- `PATCH /category/{category_id}`: Update a category (Requires admin authentication)
+- `DELETE /category/{category_id}`: Delete a category (Requires admin authentication)
+
+### Product Management
+- `POST /product/`: Create a new product (Requires admin authentication)
+- `GET /product/{product_id}`: Get a specific product by ID
+- `GET /product/`: List all products
+- `GET /product/by-category/{category_id}`: List products by category
+- `PUT /product/{product_id}`: Update a product (Requires admin authentication)
+- `DELETE /product/{product_id}`: Delete a product (Requires admin authentication)
+
+### Inventory Management
+- `GET /inventory/{product_id}`: Fetch the inventory details for a specific product (Requires admin or technical user authentication)
+- `PATCH /inventory/{product_id}/stock`: Directly set the current stock level (Requires admin authentication)
+- `POST /inventory/{product_id}/restock`: Add to existing stock (Requires admin authentication)
+- `POST /inventory/{product_id}/deduct`: Deduct stock (Requires admin or technical user authentication)
+- `GET /inventory/alerts/low-stock`: Get a list of Product IDs where stock is at or below the minimum level (Requires admin or technical user authentication)
+
 ## Development Commands
 
 ### Run Tests

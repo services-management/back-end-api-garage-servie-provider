@@ -7,8 +7,7 @@ from src.config.database import get_db
 from src.controller.product_controller import ProductController
 from src.models.product_model import ProductCreate, ProductUpdate , ProductResponse # ORM model (for response via orm_mode)
 from pydantic import BaseModel
-from src.dependency.auth import get_current_admin_user ,get_current_user_admin_or_technical
-
+from src.dependency.auth import get_current_admin_user ,get_optional_user
 router = APIRouter(
     prefix="/product", tags=["Product Management"]
 )
@@ -34,35 +33,46 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/{product_id}", 
-            response_model= ProductResponse,
-            dependencies=[Depends(get_current_user_admin_or_technical)],)
-def get_product(product_id: int, db: Session = Depends(get_db)):
+            response_model= ProductResponse)
+def get_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_optional_user)):
     svc = ProductController(db)
     product = svc.get_product(product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     return product
 
-@router.get("/", response_model=List[ProductResponse],
-            dependencies=[Depends(get_current_user_admin_or_technical)],)
+@router.get("/", response_model=List[ProductResponse])
 def list_products(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(get_optional_user)
 ):
     svc = ProductController(db)
+    if current_user:
+        print(f"User {current_user.id} ({current_user.role}) is viewing products.")
+    else:
+        print("A Guest is viewing products.")
     return svc.list_product(skip=skip, limit=limit)
 
 @router.get("/by-category/{category_id}", 
             response_model=List[ProductResponse],
-            dependencies=[Depends(get_current_user_admin_or_technical)],)
+            dependencies=[Depends(get_optional_user)]
+           )
 def list_products_by_category(
     category_id: int,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(get_optional_user)
 ):
     svc = ProductController(db)
+    # Optional: Logic to see what categories are popular with guests vs admins
+    # if current_user:
+    #     print(f"User {current_user.id} is filtering by category {category_id}")
     try:
         return svc.list_product_by_category(category_id, skip=skip, limit=limit)
     except ValueError as e:
