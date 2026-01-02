@@ -8,8 +8,8 @@ from src.schemas.techincal import TechnicalModel
 from src.models.technical_model import TechnicalCreate
 from src.utils.hash_password import hash_password
 from src.utils.verify_password import verify_password
-from src.schemas.admin import adminModel
 from uuid import UUID
+
 class AdminController:
     """Handles the business logic for admin authentication and management."""
 

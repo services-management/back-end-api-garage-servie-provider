@@ -28,6 +28,7 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
             unit_cost=payload.unit_cost,
             category_id=payload.category_id,
             initial_stock=payload.initial_stock,
+            min_stock_level=payload.min_stock_level,
         )
         return product
     except ValueError as e:

@@ -2,18 +2,17 @@
 from sqlalchemy.orm import Session
 from typing import Optional
 from src.schemas.admin import adminModel
-from src.utils import hash_password
 from src.models.admin_model import AdminCreate
 from src.utils.hash_password import hash_password
 import uuid
-class AdminRepository:
 
+class AdminRepository:
     '''implement the data access logic for the admin entity'''
-    def __init__(self,db:Session):
+    def __init__(self, db: Session):
         # the database session is injected here
         self.db = db
 
-    def create_default_admin(self, username: str, password: str, email_phone: str) -> AdminCreate:
+    def create_default_admin(self, username: str, password: str, email_phone: str) -> adminModel:
         """
         Creates a new Admin user with a hashed password.
         This is often called by a startup script or test setup.

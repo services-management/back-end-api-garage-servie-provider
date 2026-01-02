@@ -6,7 +6,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import configure_mappers
-from src.schemas import adminModel
+# Import all models to register them with SQLAlchemy Base
+from src.schemas.admin import adminModel
+from src.schemas.techincal import TechnicalModel
 from src.schemas.product import Product, Category, Inventory, Service, ServiceProductAssociation
 # admin_repositories = AdminRepository()
 app = FastAPI(

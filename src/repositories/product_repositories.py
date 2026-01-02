@@ -108,7 +108,7 @@ class ProductRepository(BaseRepository[Product]):
                     product_id=product.product_id,
                     current_stock=to_dec(initial_stock) or Decimal("0"),
                     min_stock_level=to_dec(min_stock_level),
-                    last_restock_data=last_restock_date,
+                    last_restock_date=last_restock_date,
                 )
 
             # The outer transaction (managed by FastAPI) will handle the final .commit()
