@@ -19,6 +19,7 @@ class ServiceController:
         duration_minutes: int,
         description: Optional[str] = None,
         is_available: bool = True,
+        associations: Optional[List[dict]] = None,
     ) -> Service:
         # Check name uniqueness
         if self.service_repo.get_by_name(name):
@@ -31,6 +32,7 @@ class ServiceController:
             price=price,
             duration_minutes=duration_minutes,
             is_available=is_available,
+            associations=associations,
         )
         return service
 
@@ -58,6 +60,7 @@ class ServiceController:
         price: Optional[Decimal] = None,
         duration_minutes: Optional[int] = None,
         is_available: Optional[bool] = None,
+        associations: Optional[List[dict]] = None,
     ) -> Optional[Service]:
         # Check if service exists
         existing = self.service_repo.get_by_id(service_id)
@@ -77,6 +80,7 @@ class ServiceController:
             price=price,
             duration_minutes=duration_minutes,
             is_available=is_available,
+            associations=associations,
         )
 
     def delete_service(self, service_id: int) -> bool:

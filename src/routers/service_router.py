@@ -30,6 +30,7 @@ def create_service(payload: ServiceCreate, db: Session = Depends(get_db)):
             price=payload.price,
             duration_minutes=payload.duration_minutes,
             is_available=payload.is_available,
+            associations=[a.dict() for a in payload.associations] if payload.associations else []
         )
         return service
     except ValueError as e:
@@ -101,6 +102,7 @@ def update_service(
             price=payload.price,
             duration_minutes=payload.duration_minutes,
             is_available=payload.is_available,
+            associations=[a.dict() for a in payload.associations] if payload.associations is not None else None
         )
         if not service:
             raise HTTPException(status_code=404, detail="Service not found")

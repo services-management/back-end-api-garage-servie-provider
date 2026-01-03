@@ -29,7 +29,7 @@ class ServiceBase(BaseModel):
 
 
 class ServiceCreate(ServiceBase):
-    pass
+    associations: Optional[List[ServiceProductAssociationEmbedded]] = Field(default_factory=list)
 
 
 class ServiceUpdate(BaseModel):
@@ -39,6 +39,7 @@ class ServiceUpdate(BaseModel):
     price: Optional[Decimal] = Field(None, gt=Decimal("0"))
     duration_minutes: Optional[int] = Field(None, gt=0)
     is_available: Optional[bool] = None
+    associations: Optional[List[ServiceProductAssociationEmbedded]] = None
 
     class Config:
         from_attributes = True

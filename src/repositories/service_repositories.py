@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select
 
 from src.repositories.base_repositories import BaseRepository
-from src.schemas.product import Service
+from src.schemas.product import Service, ServiceProductAssociation
 
 
 class ServiceRepository(BaseRepository[Service]):
@@ -56,6 +56,7 @@ class ServiceRepository(BaseRepository[Service]):
         duration_minutes: int,
         description: Optional[str] = None,
         is_available: bool = True,
+        associations: Optional[List[dict]] = None,
     ) -> Service:
         service = Service(
             name=name,
@@ -66,6 +67,18 @@ class ServiceRepository(BaseRepository[Service]):
             is_available=is_available,
         )
         self.db.add(service)
+        self.db.flush()  # Get service_id before committing
+
+        if associations:
+            for assoc_data in associations:
+                assoc = ServiceProductAssociation(
+                    service_id=service.service_id,
+                    product_id=assoc_data["product_id"],
+                    quantity_required=assoc_data["quantity_required"],
+                    is_optional=assoc_data.get("is_optional", False)
+                )
+                self.db.add(assoc)
+
         self.db.commit()
         self.db.refresh(service)
         return service
@@ -79,6 +92,7 @@ class ServiceRepository(BaseRepository[Service]):
         price: Optional[Decimal] = None,
         duration_minutes: Optional[int] = None,
         is_available: Optional[bool] = None,
+        associations: Optional[List[dict]] = None,
     ) -> Optional[Service]:
         service = self.get_by_id(service_id)
         if not service:
@@ -96,6 +110,23 @@ class ServiceRepository(BaseRepository[Service]):
             service.duration_minutes = duration_minutes
         if is_available is not None:
             service.is_available = is_available
+
+        if associations is not None:
+            # Clear existing associations
+            stmt = select(ServiceProductAssociation).where(ServiceProductAssociation.service_id == service_id)
+            existing_assocs = self.db.execute(stmt).scalars().all()
+            for assoc in existing_assocs:
+                self.db.delete(assoc)
+            
+            # Add new associations
+            for assoc_data in associations:
+                assoc = ServiceProductAssociation(
+                    service_id=service_id,
+                    product_id=assoc_data["product_id"],
+                    quantity_required=assoc_data["quantity_required"],
+                    is_optional=assoc_data.get("is_optional", False)
+                )
+                self.db.add(assoc)
 
         self.db.commit()
         self.db.refresh(service)
