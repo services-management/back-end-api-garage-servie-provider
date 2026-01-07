@@ -1,7 +1,10 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Numeric, Boolean, Date, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, Numeric, Boolean, Date, Text,Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from src.config.database import Base
-
+import enum
+class ProductStatus(str, enum.Enum):
+    ACTIVE = "Active"
+    INACTIVE = "Inactive"
 class Category(Base):
     __tablename__ = "categories"
 
@@ -18,12 +21,15 @@ class Product(Base):
     name = Column(String, nullable=False)
     unit_cost = Column(Numeric(10,2),nullable=True)
     selling_price = Column(Numeric(10,2), nullable=False)
+    description = Column(String(255), nullable=True)
+    image_url = Column(String(255), nullable=True)
+    status = Column(SQLEnum(ProductStatus), default=ProductStatus.ACTIVE)
     # foreign key 
     category_id = Column(Integer, ForeignKey("categories.categoryID"))
     # relation
     category = relationship("Category", back_populates="products")
     # one to one relationship with inventory
-    inventory = relationship("Inventory", back_populates="product", uselist=False)
+    inventory = relationship("Inventory", back_populates="product", uselist=False,cascade="all, delete-orphan")
     # relationship with service associations
     service_associations = relationship("ServiceProductAssociation", back_populates="product")
 
@@ -33,8 +39,7 @@ class Inventory(Base):
     product_id = Column(Integer, ForeignKey('products.product_id'),primary_key=True)
     current_stock = Column(Numeric(10,2), nullable=False, default=0)
     min_stock_level = Column(Numeric(10,2), nullable=True)
-    last_restock_data = Column(Date, nullable=True)
-
+    last_restock_date = Column(Date, nullable=True)
     # relation
     product = relationship("Product",back_populates='inventory')
 

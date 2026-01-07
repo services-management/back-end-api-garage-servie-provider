@@ -1,8 +1,9 @@
 
 # src/controller/product.py
 
-from typing import Optional, List
+from typing import Optional, List, Any
 from decimal import Decimal
+from datetime import date # Added import
 
 from sqlalchemy.orm import Session
 
@@ -23,18 +24,26 @@ class ProductController:
         name: str,
         selling_price: Decimal | float,
         unit_cost: Optional[Decimal | float] = None,
-        category_id: Optional[int] = None,
+        category_name: Optional[str] = None,
+        description: Optional[str] = None,   # NEW
+        image_url: Optional[str] = None,     # NEW
+        status: Any = None,                  # NEW (ProductStatus Enum)
         initial_stock: Decimal | float = Decimal("0"),
         min_stock_level: Optional[Decimal | float] = None,
         last_restock_date: Optional["date"] = None,
     ) -> Product:
         # 1) Name uniqueness
+
         if self.product_repo.get_by_name(name):
             raise ValueError(f"Product with name '{name}' already exists.")
 
-        # 2) Category existence (if provided)
-        if category_id is not None and not self.category_repo.get_by_id(category_id):
-            raise ValueError(f"Category with ID {category_id} does not exist.")
+         # 2) Lookup Category ID by Name
+        category_id = None
+        if category_name:
+            category = self.category_repo.get_by_name(category_name)
+            if not category:
+                raise ValueError(f"Category with name '{category_name}' does not exist.")
+            category_id = category.categoryID
 
         # 3) Delegate to repository (atomic product + inventory creation inside repo)
         # NOTE: Call the actual method name your repo defines.
@@ -43,6 +52,9 @@ class ProductController:
             selling_price=selling_price,
             unit_cost=unit_cost,
             category_id=category_id,
+            description=description,
+            image_url=image_url,
+            status=status,
             initial_stock=initial_stock,
             min_stock_level=min_stock_level,
             last_restock_date=last_restock_date,
@@ -69,7 +81,10 @@ class ProductController:
         name: Optional[str] = None,
         selling_price: Optional[Decimal | float] = None,
         unit_cost: Optional[Decimal | float] = None,
-        category_id: Optional[int] = None,
+        category_name: Optional[str] = None,
+        description: Optional[str] = None,  # NEW
+        image_url: Optional[str] = None,    # NEW
+        status: Any = None,
     ) -> Optional[Product]:
         """
         Update a product's fields.
@@ -90,9 +105,14 @@ class ProductController:
             if name_stripped != product.name and self.product_repo.get_by_name(name_stripped):
                 raise ValueError(f"Product with name '{name_stripped}' already exists.")
 
-        # Category existence check
-        if category_id is not None and not self.category_repo.get_by_id(category_id):
-            raise ValueError(f"Category with ID {category_id} does not exist.")
+                # Resolve category ID from name
+        resolved_category_id = product.category_id
+        if category_name is not None:
+            category = self.category_repo.get_by_name(category_name)
+            if not category:
+                raise ValueError(f"Category with name '{category_name}' does not exist.")
+            resolved_category_id = category.categoryID
+
 
         # Delegate to repository update
         updated = self.product_repo.update(
@@ -100,7 +120,10 @@ class ProductController:
             name=name.strip() if isinstance(name, str) else name,
             selling_price=selling_price,
             unit_cost=unit_cost,
-            category_id=category_id,
+            category_id=resolved_category_id,
+            description=description,
+            image_url=image_url,
+            status=status
         )
         return updated
 

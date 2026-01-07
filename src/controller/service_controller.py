@@ -3,6 +3,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from src.repositories.service_repositories import ServiceRepository
+from src.repositories.product_repositories import ProductRepository
 from src.schemas.product import Service
 
 
@@ -10,7 +11,7 @@ class ServiceController:
     def __init__(self, db: Session):
         self.db = db
         self.service_repo = ServiceRepository(db)
-
+        self.product_repo = ProductRepository(db)
     def create_service(
         self,
         name: str,
@@ -24,6 +25,18 @@ class ServiceController:
         # Check name uniqueness
         if self.service_repo.get_by_name(name):
             raise ValueError(f"Service with name '{name}' already exists.")
+         # Resolve product names to IDs in associations
+        resolved_associations = []
+        if associations:
+            for assoc in associations:
+                product_name = assoc.get("product_name")
+                if product_name:
+                    product = self.product_repo.get_by_name(product_name)
+                    if not product:
+                        raise ValueError(f"Product '{product_name}' not found.")
+                    # Backend maps name to the database ID
+                    assoc["product_id"] = product.product_id
+                resolved_associations.append(assoc)
 
         service = self.service_repo.create(
             name=name,
@@ -32,7 +45,7 @@ class ServiceController:
             price=price,
             duration_minutes=duration_minutes,
             is_available=is_available,
-            associations=associations,
+            associations=resolved_associations,
         )
         return service
 
@@ -71,6 +84,17 @@ class ServiceController:
         if name is not None and name != existing.name:
             if self.service_repo.get_by_name(name):
                 raise ValueError(f"Service with name '{name}' already exists.")
+        resolved_associations = None
+        if associations is not None:
+            resolved_associations = []
+            for assoc in associations:
+                product_name = assoc.get("product_name")
+                if product_name:
+                    product = self.product_repo.get_by_name(product_name)
+                    if not product:
+                        raise ValueError(f"Product '{product_name}' not found.")
+                    assoc["product_id"] = product.product_id
+                resolved_associations.append(assoc)
 
         return self.service_repo.update(
             service_id=service_id,
@@ -80,7 +104,7 @@ class ServiceController:
             price=price,
             duration_minutes=duration_minutes,
             is_available=is_available,
-            associations=associations,
+            associations=resolved_associations,
         )
 
     def delete_service(self, service_id: int) -> bool:
