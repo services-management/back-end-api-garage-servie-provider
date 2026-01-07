@@ -1,7 +1,7 @@
 
 # src/repositories/product_repository.py
 
-from typing import Optional, List
+from typing import Optional, List, Any
 from decimal import Decimal
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select
@@ -75,6 +75,9 @@ class ProductRepository(BaseRepository[Product]):
         selling_price: Decimal | float,
         unit_cost: Optional[Decimal | float] = None,
         category_id: Optional[int] = None,
+        description: Optional[str] = None, # Added
+        image_url: Optional[str] = None,   # Added
+        status: Any = None,                # Added (ProductStatus Enum)
         initial_stock: Decimal | float = Decimal("0"),
         min_stock_level: Optional[Decimal | float] = None,
         last_restock_date: Optional["date"] = None,  # if you want to set it initially
@@ -89,35 +92,43 @@ class ProductRepository(BaseRepository[Product]):
                 return None
             return v if isinstance(v, Decimal) else Decimal(str(v))
 
-        product = Product(
-            name=name,
-            selling_price=to_dec(selling_price),
-            unit_cost=to_dec(unit_cost),
-            category_id=category_id,
-        )
-
-        # Atomic transaction: product + inventory
+       # 1. Start a single atomic transaction block
         try:
-            with self.db.begin_nested():  
-                self.db.add(product)
-                # After flush, product_id will be available
-                self.db.flush()  # assign PK
+            # We don't necessarily need 'with' if we manage the session externally, 
+            # but for a repo 'create', we want to ensure both happen or none.
+            
+            product = Product(
+                name=name,
+                selling_price=to_dec(selling_price),
+                unit_cost=to_dec(unit_cost),
+                category_id=category_id,
+                description=description,
+                image_url=image_url,
+                status=status
+            )
 
-                # Create inventory with initial stock
-                self.inventory_repo.create_inventory(
-                    product_id=product.product_id,
-                    current_stock=to_dec(initial_stock) or Decimal("0"),
-                    min_stock_level=to_dec(min_stock_level),
-                    last_restock_date=last_restock_date,
-                )
+            self.db.add(product)
+            # FLUSH is key: It sends the INSERT to the DB and gets the product_id 
+            # WITHOUT ending the transaction yet.
+            self.db.flush() 
 
-            # The outer transaction (managed by FastAPI) will handle the final .commit()
+            # 2. Use the ID from the flushed product to create Inventory
+            self.inventory_repo.create_inventory(
+                product_id=product.product_id,
+                current_stock=to_dec(initial_stock) or Decimal("0"),
+                min_stock_level=to_dec(min_stock_level),
+                last_restock_date=last_restock_date,
+            )
+
+            # 3. Commit EVERYTHING at once
             self.db.commit()
             self.db.refresh(product)
             return product
-        except Exception:
-            # session.begin() rolls back automatically on exception
-            raise
+
+        except Exception as e:
+            # If ANY part fails, undo everything (Product + Inventory)
+            self.db.rollback()
+            raise e
 
     # --- Update product ---
     def update(
@@ -127,6 +138,9 @@ class ProductRepository(BaseRepository[Product]):
         selling_price: Optional[Decimal | float] = None,
         unit_cost: Optional[Decimal | float] = None,
         category_id: Optional[int] = None,
+        description: Optional[str] = None, # Added
+        image_url: Optional[str] = None,   # Added
+        status: Any = None,               # Added (ProductStatus Enum)
     ) -> Optional[Product]:
         # Category validation if provided
         if category_id is not None and not self.category_repo.get_by_id(category_id):
@@ -147,7 +161,12 @@ class ProductRepository(BaseRepository[Product]):
             update_data["unit_cost"] = to_dec(unit_cost)
         if category_id is not None:
             update_data["category_id"] = category_id
-
+        if description is not None:
+            update_data["description"] = description
+        if image_url is not None:
+            update_data["image_url"] = image_url
+        if status is not None:
+            update_data["status"] = status
         # Use BaseRepository.update(id, data) which commits & refreshes
         return super().update(product_id, update_data)
 

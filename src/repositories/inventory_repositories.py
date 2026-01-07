@@ -38,7 +38,7 @@ class InventoryRepository(BaseRepository[Inventory]):
             product_id=product_id,
             current_stock=to_decimal(current_stock) or Decimal("0"),
             min_stock_level=to_decimal(min_stock_level),
-            last_restock_data=last_restock_date,
+            last_restock_date=last_restock_date,
         )
         self.db.add(new_inventory)
         self.db.flush()  # Syncs with DB and gets IDs without committing
@@ -59,7 +59,7 @@ class InventoryRepository(BaseRepository[Inventory]):
         # 2. CRITICAL FIX: Map 'date' (from controller/schema) to 'data' (in Model)
         # We want to make sure we are sending 'last_restock_data' to the BaseRepository
         if "last_restock_date" in kwargs:
-            kwargs["last_restock_data"] = kwargs.pop("last_restock_date")
+            kwargs["last_restock_date"] = kwargs.pop("last_restock_date")
         
         # Optional: If your controller sometimes sends it correctly as 'last_restock_data'
         # but the old code was renaming it to 'date', remove that old renaming logic!

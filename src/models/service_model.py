@@ -1,16 +1,27 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel, Field,model_validator
+from typing import Optional, List,Any
 from decimal import Decimal
 
 
 class ServiceProductAssociationEmbedded(BaseModel):
-    product_id: int = Field(..., example=1)
+    product_name: str = Field(..., example="oil")
     quantity_required: int = Field(..., gt=0, example=2)
     is_optional: bool = Field(False, example=False)
 
     class Config:
         from_attributes = True
-
+class ServiceProductAssociationResponse(ServiceProductAssociationEmbedded):
+    product_id: Optional[int] = Field(None, example=1)
+    @model_validator(mode='before')
+    @classmethod
+    def get_name_from_relationship(cls, data: Any) -> Any:
+        """
+        Extraction logic: If the SQLAlchemy object has a 'product' relationship,
+        extract the name from it.
+        """
+        if hasattr(data, "product") and data.product:
+            data.product_name = data.product.name
+        return data
 
 class ServiceBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100, example="Oil Change")
@@ -47,4 +58,4 @@ class ServiceUpdate(BaseModel):
 
 class ServiceResponse(ServiceBase):
     service_id: int = Field(..., example=123)
-    associations: List[ServiceProductAssociationEmbedded] = Field(default_factory=list)
+    associations: List[ServiceProductAssociationResponse] = Field(default_factory=list)
