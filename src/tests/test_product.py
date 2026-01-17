@@ -1,5 +1,4 @@
 from fastapi.testclient import TestClient
-import pytest
 
 # Test creating a product
 def test_create_product_success(authenticated_admin_client: TestClient):

@@ -1,7 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from uuid import UUID
-from typing import List
 
 # --- Imports from your project ---
 # Schemas (Pydantic Models)

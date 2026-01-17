@@ -1,6 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession # Use AsyncSession if your DB is async
-from typing import List
 from uuid import UUID # Correct type for IDs
 
 # --- Imports from your project ---

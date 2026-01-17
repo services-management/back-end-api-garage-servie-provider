@@ -1,6 +1,6 @@
 
 # src/controller/inventory.py
-from typing import List, Optional
+from typing import List
 from decimal import Decimal
 from datetime import date
 

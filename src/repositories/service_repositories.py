@@ -42,7 +42,7 @@ class ServiceRepository(BaseRepository[Service]):
     def list_available(self, skip: int = 0, limit: int = 100) -> List[Service]:
         stmt = (
             select(Service)
-            .where(Service.is_available == True)
+            .where(Service.is_available)
             .offset(skip)
             .limit(limit)
         )

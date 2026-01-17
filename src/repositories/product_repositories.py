@@ -5,7 +5,7 @@ from typing import Optional, List, Any
 from decimal import Decimal
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select
-
+from datetime import date
 from src.repositories.base_repositories import BaseRepository
 from src.repositories.inventory_repositories import InventoryRepository
 from src.repositories.category_repositories import CategoryRepository

@@ -1,7 +1,7 @@
 
 # src/repositories/inventory_repository.py
 
-from typing import Optional, Dict, Any
+from typing import Optional, Any
 from datetime import date
 from decimal import Decimal
 

@@ -1,5 +1,4 @@
 import uuid
-from fastapi.testclient import TestClient
 
 def test_admin_login_success(client, admin_user):
     """Test successful admin login."""

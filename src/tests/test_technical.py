@@ -1,4 +1,3 @@
-from fastapi.testclient import TestClient
 
 def test_technical_login_success(client, technical_user):
     """Test successful technical staff login."""

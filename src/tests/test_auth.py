@@ -1,3 +1,8 @@
+
+import pytest
+from src.repositories.admin_repositories import AdminRepository
+from src.utils.hash_password import hash_password
+
 @pytest.fixture(scope="function")
 def admin_user(db_session):
     admin_repo = AdminRepository(db_session)

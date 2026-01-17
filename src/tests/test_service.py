@@ -1,5 +1,4 @@
 from fastapi.testclient import TestClient
-import pytest
 
 # Test creating a service
 def test_create_service_success(authenticated_admin_client: TestClient):
