@@ -1,7 +1,8 @@
-from typing import Optional, List
 from decimal import Decimal
-from sqlalchemy.orm import Session, joinedload
+from typing import List, Optional
+
 from sqlalchemy import select
+from sqlalchemy.orm import Session, joinedload
 
 from src.repositories.base_repositories import BaseRepository
 from src.schemas.product import Service, ServiceProductAssociation

@@ -1,11 +1,13 @@
 # src/models/__init__.py (CORRECTED)
 
 # Import and expose all models from the admin and technical files
-from .admin_model import AdminLogin, AdminCreate, AdminUpdate, AdminOut, Token
-from .technical_model import TechnicalOut, TechnicalLogin, TechnicalCreate, TechnicalUpdate # Add all necessary Technical schemas
-from .inventory_model import InventoryCreate, InventoryOut , InventoryUpdate
+from .admin_model import AdminCreate, AdminLogin, AdminOut, AdminUpdate, Token
 from .category_model import CategoryCreate, CategoryResponse
-from .product_model import ProductCreate, ProductResponse , ProductUpdate
+from .inventory_model import InventoryCreate, InventoryOut, InventoryUpdate
+from .product_model import ProductCreate, ProductResponse, ProductUpdate
+from .technical_model import (  # Add all necessary Technical schemas
+    TechnicalCreate, TechnicalLogin, TechnicalOut, TechnicalUpdate)
+
 # Add other model imports here (e.g., from .user import UserOut)
 
 # The __all__ list should contain all names you want to expose when someone imports from src.models

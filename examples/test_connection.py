@@ -5,14 +5,15 @@ Example script to test database connection without requiring SECRET_KEY.
 This demonstrates that database connection works independently of JWT/authentication settings.
 """
 
-import sys
 import os
+import sys
 
 # Add parent directory to path to import from src
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.config.database import Database
 from sqlalchemy import text
+
+from src.config.database import Database
 
 
 def test_database_connection():

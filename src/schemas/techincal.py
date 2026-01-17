@@ -1,7 +1,8 @@
-from sqlalchemy import Column , String, Enum
+import uuid
+
+from sqlalchemy import Column, Enum, String
 from sqlalchemy.dialects.postgresql import UUID
 
-import uuid
 from src.config.database import Base
 
 TechnicalStatusEnum = Enum("free","busy","off_duty", name = 'technical_status_enum')

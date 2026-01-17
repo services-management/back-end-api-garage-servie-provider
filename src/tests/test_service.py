@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+
 # Test creating a service
 def test_create_service_success(authenticated_admin_client: TestClient):
     response = authenticated_admin_client.post(

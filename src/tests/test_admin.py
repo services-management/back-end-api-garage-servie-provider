@@ -1,5 +1,6 @@
 import uuid
 
+
 def test_admin_login_success(client, admin_user):
     """Test successful admin login."""
     response = client.post(

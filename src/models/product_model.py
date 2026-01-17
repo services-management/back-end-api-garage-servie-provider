@@ -1,11 +1,13 @@
 
 # src/schemas/product.py
-from pydantic import BaseModel, Field, validator
-from typing import Optional
 from decimal import Decimal
-from src.schemas.product import ProductStatus
+from typing import Optional
+
+from pydantic import BaseModel, Field, validator
+
 from src.models.category_model import CategoryResponse  # fixed import
 from src.models.inventory_model import InventorySnapshot  # fixed import
+from src.schemas.product import ProductStatus
 
 
 # --- Product Base Schemas ---

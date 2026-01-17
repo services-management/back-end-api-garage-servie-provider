@@ -1,11 +1,14 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
 
 from src.config.database import get_db
 from src.controller.service_controller import ServiceController
-from src.models.service_model import ServiceCreate, ServiceUpdate, ServiceResponse
-from src.dependency.auth import get_current_admin_user, get_current_user_admin_or_technical
+from src.dependency.auth import (get_current_admin_user,
+                                 get_current_user_admin_or_technical)
+from src.models.service_model import (ServiceCreate, ServiceResponse,
+                                      ServiceUpdate)
 
 router = APIRouter(
     prefix="/service",

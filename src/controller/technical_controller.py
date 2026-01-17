@@ -1,11 +1,16 @@
-from src.repositories.technical_repositorie import TechnicalRepository
-from src.models.technical_model import TechnicalUpdate,TechnicalStatusUpdate,TechnicalLogin # Added TechnicalUpdate
-from src.utils.verify_password import verify_password
-from src.utils.hash_password import hash_password # Added for updates
-from src.schemas.techincal import TechnicalModel# Added TechnicalStatusUpdate
-from fastapi import HTTPException, status
-from typing import Optional, List
+from typing import List, Optional
 from uuid import UUID
+
+from fastapi import HTTPException, status
+
+from src.models.technical_model import (  # Added TechnicalUpdate
+    TechnicalLogin, TechnicalStatusUpdate, TechnicalUpdate)
+from src.repositories.technical_repositorie import TechnicalRepository
+from src.schemas.techincal import TechnicalModel  # Added TechnicalStatusUpdate
+from src.utils.hash_password import hash_password  # Added for updates
+from src.utils.verify_password import verify_password
+
+
 class TechnicalController:
     """Handles the business logic for technical user authentication and management."""
 

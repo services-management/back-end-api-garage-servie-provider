@@ -1,8 +1,12 @@
-from sqlalchemy.orm import Session
-from typing import Optional, List, Union
+from typing import List, Optional, Union
+
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from src.models.technical_model import (  # Assuming AdminUpdate exists
+    TechnicalCreate, TechnicalUpdate)
 from src.schemas.techincal import TechnicalModel
-from src.models.technical_model import TechnicalCreate, TechnicalUpdate # Assuming AdminUpdate exists
+
 
 class TechnicalRepository:
     """Implements the data access logic for the Technical entity."""

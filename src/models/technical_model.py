@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field, validator
-from typing import Optional, Literal
 import re
 import uuid
+from typing import Literal, Optional
+
+from pydantic import BaseModel, Field, validator
 
 # --- Status Enum/Literal (Important for validation) ---
 # Assuming these are the allowed statuses for a Technical user

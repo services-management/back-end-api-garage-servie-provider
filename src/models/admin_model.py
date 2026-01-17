@@ -1,7 +1,10 @@
-from pydantic import BaseModel,Field, validator
-from typing import Optional
-import uuid
 import re
+import uuid
+from typing import Optional
+
+from pydantic import BaseModel, Field, validator
+
+
 # Schema for creating a new admin
 class AdminCreate(BaseModel):
     '''

@@ -1,7 +1,13 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Numeric, Boolean, Date, Text,Enum as SQLEnum
-from sqlalchemy.orm import relationship
-from src.config.database import Base
 import enum
+
+from sqlalchemy import Boolean, Column, Date
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy.orm import relationship
+
+from src.config.database import Base
+
+
 class ProductStatus(str, enum.Enum):
     ACTIVE = "Active"
     INACTIVE = "Inactive"

@@ -1,14 +1,16 @@
 
 # src/repositories/product_repository.py
 
-from typing import Optional, List, Any
-from decimal import Decimal
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import select
 from datetime import date
+from decimal import Decimal
+from typing import Any, List, Optional
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session, joinedload
+
 from src.repositories.base_repositories import BaseRepository
-from src.repositories.inventory_repositories import InventoryRepository
 from src.repositories.category_repositories import CategoryRepository
+from src.repositories.inventory_repositories import InventoryRepository
 from src.schemas.product import Product  # <-- ORM model, not schema
 
 

@@ -1,5 +1,6 @@
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
+
 from sqlalchemy.orm import Session
-from typing import TypeVar, Generic, Type, Any, Dict, List, Optional
 
 # 1. Define the Type Variable (T represents your SQLAlchemy Model)
 T = TypeVar("T")

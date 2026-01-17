@@ -1,24 +1,27 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from uuid import UUID # Correct type for IDs
+from uuid import UUID  # Correct type for IDs
 
-# --- Imports from your project ---
-# Your Schemas (Pydantic Models for input/output)
-from src.models.admin_model import AdminLogin, AdminCreate, AdminUpdate, AdminOut
-from src.schemas.auth import Token
-from src.models.technical_model import TechnicalCreate, TechnicalOut # Assuming you have a TechnicalOut
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+# Database dependency
+from src.config.database import \
+    get_db  # Assuming this function yields the session
 # Your Controller (Handles the business logic)
 from src.controller.admin_controller import AdminController
+# Assuming a function to verify the current admin user from JWT
+from src.dependency.auth import get_current_admin_user
+# --- Imports from your project ---
+# Your Schemas (Pydantic Models for input/output)
+from src.models.admin_model import (AdminCreate, AdminLogin, AdminOut,
+                                    AdminUpdate)
+from src.models.technical_model import (  # Assuming you have a TechnicalOut
+    TechnicalCreate, TechnicalOut)
 # Your Repositories (Used for dependency injection)
 from src.repositories.admin_repositories import AdminRepository
 from src.repositories.technical_repositorie import TechnicalRepository
-# Database dependency
-from src.config.database import get_db # Assuming this function yields the session
-from sqlalchemy.orm import Session
+from src.schemas.auth import Token
 # --- Security Dependencies ---
 from src.service.auth import create_access_token
-# Assuming a function to verify the current admin user from JWT
-from src.dependency.auth import get_current_admin_user 
-
 
 # --- Router Initialization ---
 router = APIRouter(

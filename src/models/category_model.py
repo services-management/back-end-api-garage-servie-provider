@@ -1,7 +1,9 @@
 # src/schemas/category.py
 
-from pydantic import BaseModel, Field
 from typing import Optional
+
+from pydantic import BaseModel, Field
+
 
 # Base Schema: Shared fields for request/response
 class CategoryBase(BaseModel):

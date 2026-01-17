@@ -1,14 +1,14 @@
 
 # src/controller/product.py
 
-from typing import Optional, List, Any
+from datetime import date  # Added import
 from decimal import Decimal
-from datetime import date # Added import
+from typing import Any, List, Optional
 
 from sqlalchemy.orm import Session
 
-from src.repositories.product_repositories import ProductRepository
 from src.repositories.category_repositories import CategoryRepository
+from src.repositories.product_repositories import ProductRepository
 from src.schemas.product import Product  # use ORM model, not schema
 
 

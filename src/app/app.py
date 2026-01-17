@@ -1,13 +1,15 @@
-from fastapi import FastAPI, Depends
-from src.routers import admin_router, technical_router, category_router, inventory_router, product_router, service_router
-from src.config.database import get_db, Base, engine, SessionLocal
-from src.repositories.admin_repositories import  AdminRepository
-from sqlalchemy.orm import Session
-from sqlalchemy import text
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import configure_mappers
+from sqlalchemy import text
+from sqlalchemy.orm import Session, configure_mappers
+
+from src.config.database import Base, SessionLocal, engine, get_db
+from src.repositories.admin_repositories import AdminRepository
+from src.routers import (admin_router, category_router, inventory_router,
+                         product_router, service_router, technical_router)
 # Import all models to register them with SQLAlchemy Base
 from src.schemas.admin import adminModel
+
 # admin_repositories = AdminRepository()
 app = FastAPI(
     title="Fixing Service API",
@@ -80,6 +82,9 @@ def test_db_connection(db: Session = Depends(get_db)):
     except Exception as e:
         return {"message": f"Database connection failed: {e}"}
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 app.include_router(admin_router)
 app.include_router(technical_router)

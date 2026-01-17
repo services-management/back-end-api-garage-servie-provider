@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field,model_validator
-from typing import Optional, List,Any
 from decimal import Decimal
+from typing import Any, List, Optional
+
+from pydantic import BaseModel, Field, model_validator
 
 
 class ServiceProductAssociationEmbedded(BaseModel):
