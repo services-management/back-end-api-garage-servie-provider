@@ -1,10 +1,12 @@
 
-from sqlalchemy import Column, String, Boolean, Enum, ForeignKey, DateTime
+import uuid
+from datetime import datetime
+
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-import uuid
+
 from src.config.database import Base
-from datetime import datetime
 
 TechnicalStatusEnum = Enum("free", "busy", "off_duty", name="technical_status_enum")
 

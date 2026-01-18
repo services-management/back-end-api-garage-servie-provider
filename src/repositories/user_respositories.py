@@ -1,16 +1,15 @@
-from typing import List, Optional, Dict, Any, Tuple
-from uuid import UUID
-from datetime import datetime, date,time
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, func
-from sqlalchemy.exc import IntegrityError
 import logging
 import random
+from datetime import date, datetime, time
+from typing import Any, Dict, List, Optional, Tuple
+from uuid import UUID
+
+from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, joinedload
 
 from src.models.user import User, UserStatus
-from src.schemas.user import (
-    UserFilter,
-)
+from src.schemas.user import UserFilter
 
 logger = logging.getLogger(__name__)
 
@@ -208,7 +207,7 @@ class UserRepository:
         """
         try:
             from src.models.booking import Booking
-            
+
             # Get unique car make/model combinations from user's bookings
             cars = self.db.query(
                 Booking.car_make,
