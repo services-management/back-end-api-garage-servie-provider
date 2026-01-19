@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 
 from src.repositories.service_repositories import ServiceRepository
 from src.repositories.product_repositories import ProductRepository
+from src.repositories.file_repositories import FileUploadRepository
+from src.schemas.file import FileType
 from src.schemas.product import Service
 
 
@@ -12,10 +14,10 @@ class ServiceController:
         self.db = db
         self.service_repo = ServiceRepository(db)
         self.product_repo = ProductRepository(db)
+        self.file_repo = FileUploadRepository(db)
     def create_service(
         self,
         name: str,
-        image_url: str,
         price: Decimal,
         duration_minutes: int,
         description: Optional[str] = None,
@@ -41,7 +43,6 @@ class ServiceController:
         service = self.service_repo.create(
             name=name,
             description=description,
-            image_url=image_url,
             price=price,
             duration_minutes=duration_minutes,
             is_available=is_available,
@@ -50,26 +51,40 @@ class ServiceController:
         return service
 
     def get_service(self, service_id: int) -> Optional[Service]:
-        return self.service_repo.get_by_id(service_id)
+        service = self.service_repo.get_by_id(service_id)
+        if service:
+            service.images = self.file_repo.list_by_service(service_id)
+        return service
 
     def get_service_with_associations(self, service_id: int) -> Optional[Service]:
-        return self.service_repo.get_by_id_with_relations(service_id)
+        service = self.service_repo.get_by_id_with_relations(service_id)
+        if service:
+            service.images = self.file_repo.list_by_service(service_id)
+        return service
 
     def list_services(self, skip: int = 0, limit: int = 100) -> List[Service]:
-        return self.service_repo.list(skip=skip, limit=limit)
+        services = self.service_repo.list(skip=skip, limit=limit)
+        for s in services:
+            s.images = self.file_repo.list_by_service(s.service_id)
+        return services
 
     def list_services_with_associations(self, skip: int = 0, limit: int = 100) -> List[Service]:
-        return self.service_repo.list_with_relations(skip=skip, limit=limit)
+        services = self.service_repo.list_with_relations(skip=skip, limit=limit)
+        for s in services:
+            s.images = self.file_repo.list_by_service(s.service_id)
+        return services
 
     def list_available_services(self, skip: int = 0, limit: int = 100) -> List[Service]:
-        return self.service_repo.list_available(skip=skip, limit=limit)
+        services = self.service_repo.list_available(skip=skip, limit=limit)
+        for s in services:
+            s.images = self.file_repo.list_by_service(s.service_id)
+        return services
 
     def update_service(
         self,
         service_id: int,
         name: Optional[str] = None,
         description: Optional[str] = None,
-        image_url: Optional[str] = None,
         price: Optional[Decimal] = None,
         duration_minutes: Optional[int] = None,
         is_available: Optional[bool] = None,
@@ -100,7 +115,6 @@ class ServiceController:
             service_id=service_id,
             name=name,
             description=description,
-            image_url=image_url,
             price=price,
             duration_minutes=duration_minutes,
             is_available=is_available,

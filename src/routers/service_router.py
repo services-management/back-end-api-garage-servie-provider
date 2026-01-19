@@ -26,7 +26,6 @@ def create_service(payload: ServiceCreate, db: Session = Depends(get_db)):
         service = svc.create_service(
             name=payload.name,
             description=payload.description,
-            image_url=payload.image_url,
             price=payload.price,
             duration_minutes=payload.duration_minutes,
             is_available=payload.is_available,
@@ -40,7 +39,6 @@ def create_service(payload: ServiceCreate, db: Session = Depends(get_db)):
 @router.get(
     "/{service_id}",
     response_model=ServiceResponse,
-    dependencies=[Depends(get_current_user_admin_or_technical)],
 )
 def get_service(service_id: int, db: Session = Depends(get_db)):
     """Get a service by ID"""
@@ -54,7 +52,6 @@ def get_service(service_id: int, db: Session = Depends(get_db)):
 @router.get(
     "/",
     response_model=List[ServiceResponse],
-    dependencies=[Depends(get_current_user_admin_or_technical)],
 )
 def list_services(
     skip: int = Query(0, ge=0),
@@ -98,7 +95,6 @@ def update_service(
             service_id=service_id,
             name=payload.name,
             description=payload.description,
-            image_url=payload.image_url,
             price=payload.price,
             duration_minutes=payload.duration_minutes,
             is_available=payload.is_available,

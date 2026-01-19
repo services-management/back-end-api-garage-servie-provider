@@ -26,9 +26,8 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
             selling_price=payload.selling_price,
             unit_cost=payload.unit_cost,
             category_name=payload.category_name,
-            description=payload.description,  # ADDED
-            image_url=payload.image_url,      # ADDED
-            status=payload.status,            # ADDED
+            description=payload.description,
+            status=payload.status,
             initial_stock=payload.initial_stock,
             min_stock_level=payload.min_stock_level,
         )
@@ -98,9 +97,8 @@ def update_product(
             selling_price=payload.selling_price,
             unit_cost=payload.unit_cost,
             category_name=payload.category_name,
-            description=payload.description,  # ADDED
-            image_url=payload.image_url,      # ADDED
-            status=payload.status,            # ADDED
+            description=payload.description,
+            status=payload.status,
         )
         if not updated:
             raise HTTPException(status_code=404, detail="Product not found")

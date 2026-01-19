@@ -1,9 +1,9 @@
 import os
 import uuid
 from typing import Optional
+from urllib.parse import urlparse
 
 import boto3
-from botocore.client import Config
 
 from src.config.settings import settings
 
@@ -16,20 +16,21 @@ def get_s3_client():
     if _s3_client is None:
         _s3_client = boto3.client(
             "s3",
-            region_name=settings.AWS_REGION,
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            config=Config(s3={"addressing_style": "virtual"}),
+            endpoint_url=settings.S3_ENDPOINT_URL,
+            aws_access_key_id=settings.S3_ACCESS_KEY,
+            aws_secret_access_key=settings.S3_SECRET_KEY,
+            verify=settings.S3_VERIFY_SSL,
         )
     return _s3_client
 
 
-def _public_url(bucket: str, key: str, region: Optional[str] = None) -> str:
-    region = region or settings.AWS_REGION
-    # us-east-1 has a legacy global endpoint, but the regional form works for GETs.
-    if region == "us-east-1":
-        return f"https://{bucket}.s3.amazonaws.com/{key}"
-    return f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
+def _public_url(bucket: str, key: str, endpoint: str) -> str:
+    """Build public URL for MinIO object"""
+    # Parse endpoint to build the URL
+    parsed = urlparse(endpoint)
+    scheme = parsed.scheme or "http"
+    netloc = parsed.netloc
+    return f"{scheme}://{netloc}/{bucket}/{key}"
 
 
 def upload_bytes(
@@ -39,21 +40,21 @@ def upload_bytes(
     content_type: Optional[str] = None,
     prefix: str = "images",
 ) -> str:
-    """Upload raw bytes to S3 and return the public URL.
+    """Upload raw bytes to MinIO and return the public URL.
 
     The object key is generated as: {prefix}/{uuid4}-{sanitized_name}
     """
-    bucket = settings.AWS_BUCKET_NAME
-    if not (settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY and bucket):
-        raise RuntimeError("Missing AWS S3 configuration. Check environment variables.")
+    bucket = settings.S3_BUCKET_NAME
+    if not (settings.S3_ACCESS_KEY and settings.S3_SECRET_KEY and bucket):
+        raise RuntimeError("Missing MinIO S3 configuration. Check environment variables.")
 
     safe_name = os.path.basename(file_name).replace(" ", "_")
     key = f"{prefix}/{uuid.uuid4()}-{safe_name}"
 
     client = get_s3_client()
-    extra = {"ACL": "public-read"}
+    extra = {}
     if content_type:
         extra["ContentType"] = content_type
 
     client.put_object(Bucket=bucket, Key=key, Body=data, **extra)
-    return _public_url(bucket, key, settings.AWS_REGION)
+    return _public_url(bucket, key, settings.S3_ENDPOINT_URL)

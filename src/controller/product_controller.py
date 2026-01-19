@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 
 from src.repositories.product_repositories import ProductRepository
 from src.repositories.category_repositories import CategoryRepository
+from src.repositories.file_repositories import FileUploadRepository
+from src.schemas.file import FileType
 from src.schemas.product import Product  # use ORM model, not schema
 
 
@@ -17,6 +19,7 @@ class ProductController:
         self.db = db
         self.product_repo = ProductRepository(db)
         self.category_repo = CategoryRepository(db)
+        self.file_repo = FileUploadRepository(db)
         # Inventory operations are handled inside ProductRepository (atomic create + delete)
 
     def create_product(
@@ -25,9 +28,8 @@ class ProductController:
         selling_price: Decimal | float,
         unit_cost: Optional[Decimal | float] = None,
         category_name: Optional[str] = None,
-        description: Optional[str] = None,   # NEW
-        image_url: Optional[str] = None,     # NEW
-        status: Any = None,                  # NEW (ProductStatus Enum)
+        description: Optional[str] = None,
+        status: Any = None,
         initial_stock: Decimal | float = Decimal("0"),
         min_stock_level: Optional[Decimal | float] = None,
         last_restock_date: Optional["date"] = None,
@@ -53,7 +55,6 @@ class ProductController:
             unit_cost=unit_cost,
             category_id=category_id,
             description=description,
-            image_url=image_url,
             status=status,
             initial_stock=initial_stock,
             min_stock_level=min_stock_level,
@@ -63,17 +64,26 @@ class ProductController:
 
     def get_product(self, product_id: int) -> Optional[Product]:
         """Retrieve a product by ID."""
-        return self.product_repo.get_by_id(product_id)
+        product = self.product_repo.get_by_id(product_id)
+        if product:
+            product.images = self.file_repo.list_by_product(product_id)
+        return product
 
     def list_product(self, skip: int = 0, limit: int = 100) -> List[Product]:
         """List products with pagination."""
-        return self.product_repo.list(skip=skip, limit=limit)
+        products = self.product_repo.list(skip=skip, limit=limit)
+        for p in products:
+            p.images = self.file_repo.list_by_product(p.product_id)
+        return products
 
     def list_product_by_category(self, category_id: int, skip: int = 0, limit: int = 100) -> List[Product]:
         """List products filtered by category with pagination."""
         if not self.category_repo.get_by_id(category_id):
             raise ValueError(f"Category with ID {category_id} does not exist.")
-        return self.product_repo.list_by_category(category_id, skip=skip, limit=limit)
+        products = self.product_repo.list_by_category(category_id, skip=skip, limit=limit)
+        for p in products:
+            p.images = self.file_repo.list_by_product(p.product_id)
+        return products
 
     def update_product(
         self,
@@ -82,8 +92,7 @@ class ProductController:
         selling_price: Optional[Decimal | float] = None,
         unit_cost: Optional[Decimal | float] = None,
         category_name: Optional[str] = None,
-        description: Optional[str] = None,  # NEW
-        image_url: Optional[str] = None,    # NEW
+        description: Optional[str] = None,
         status: Any = None,
     ) -> Optional[Product]:
         """
@@ -122,7 +131,6 @@ class ProductController:
             unit_cost=unit_cost,
             category_id=resolved_category_id,
             description=description,
-            image_url=image_url,
             status=status
         )
         return updated

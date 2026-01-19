@@ -30,11 +30,12 @@ class Settings(BaseSettings):
     SECRET_KEY: Optional[str] = os.getenv("SECRET_KEY", "a_very_secret_key_change_in_production")
     ALGORITHM: str = "HS256"
 
-    # AWS S3 settings
-    AWS_ACCESS_KEY_ID: Optional[str] = os.getenv("AWS_ACCESS_KEY_ID")
-    AWS_SECRET_ACCESS_KEY: Optional[str] = os.getenv("AWS_SECRET_ACCESS_KEY")
-    AWS_BUCKET_NAME: Optional[str] = os.getenv("AWS_BUCKET_NAME")
-    AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
+    # MinIO S3-Compatible settings
+    S3_ACCESS_KEY: Optional[str] = os.getenv("S3_ACCESS_KEY")
+    S3_SECRET_KEY: Optional[str] = os.getenv("S3_SECRET_KEY")
+    S3_BUCKET_NAME: Optional[str] = os.getenv("S3_BUCKET_NAME")
+    S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "http://localhost:9000")
+    S3_VERIFY_SSL: bool = os.getenv("S3_VERIFY_SSL", "true").lower() == "true"
 
     @model_validator(mode="after")
     def construct_db_url(self):

@@ -50,7 +50,6 @@ class Service(Base):
     service_id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), unique=True, index=True, nullable=False)
     description = Column(Text, nullable=True)
-    image_url = Column(String(250), nullable=False)
     price = Column(Numeric(10, 2), nullable=False)
     duration_minutes = Column(Integer, nullable=False)
     is_available = Column(Boolean, server_default='True', nullable=False)

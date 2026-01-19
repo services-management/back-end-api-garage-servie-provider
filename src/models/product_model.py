@@ -6,6 +6,7 @@ from decimal import Decimal
 from src.schemas.product import ProductStatus
 from src.models.category_model import CategoryResponse  # fixed import
 from src.models.inventory_model import InventorySnapshot  # fixed import
+from src.models.file_model import FileUploadResponse
 
 
 # --- Product Base Schemas ---
@@ -14,7 +15,6 @@ class ProductBase(BaseModel):
     selling_price: Decimal = Field(..., gt=Decimal("0"), example=Decimal("19.99"), description="Price charged to the customer.")
     unit_cost: Optional[Decimal] = Field(None, ge=Decimal("0"), example=Decimal("12.50"), description="Internal cost of the product.")
     description :str = Field(None,max_length=255)
-    image_url :str = Field(None,description="image of the product")
     status: ProductStatus = Field(default=ProductStatus.ACTIVE, example="Active")
     @validator("name")
     def name_not_blank(cls, v: str) -> str:
@@ -66,7 +66,6 @@ class ProductUpdate(BaseModel):
     unit_cost: Optional[Decimal] = Field(None, ge=Decimal("0"), example=Decimal("13.00"))
     description :Optional[str] = Field(None,min_length=1,max_length=255)
     category_name: Optional[str] = Field(None, example="oil")
-    image_url: Optional[str] = Field(None)
     status: Optional[ProductStatus] = None
     @validator("name")
     def name_not_blank(cls, v: Optional[str]) -> Optional[str]:
@@ -97,6 +96,7 @@ class ProductResponse(ProductBase):
     # Nested relationships: The ORM can populate these
     category: Optional[CategoryResponse] = None
     inventory: Optional[InventorySnapshot] = None
+    images: Optional[list[FileUploadResponse]] = None
 
     class Config:
         from_attributes = True

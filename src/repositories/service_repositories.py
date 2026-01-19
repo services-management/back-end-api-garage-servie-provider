@@ -51,7 +51,6 @@ class ServiceRepository(BaseRepository[Service]):
     def create(
         self,
         name: str,
-        image_url: str,
         price: Decimal,
         duration_minutes: int,
         description: Optional[str] = None,
@@ -61,7 +60,6 @@ class ServiceRepository(BaseRepository[Service]):
         service = Service(
             name=name,
             description=description,
-            image_url=image_url,
             price=price,
             duration_minutes=duration_minutes,
             is_available=is_available,
@@ -88,7 +86,6 @@ class ServiceRepository(BaseRepository[Service]):
         service_id: int,
         name: Optional[str] = None,
         description: Optional[str] = None,
-        image_url: Optional[str] = None,
         price: Optional[Decimal] = None,
         duration_minutes: Optional[int] = None,
         is_available: Optional[bool] = None,
@@ -102,8 +99,6 @@ class ServiceRepository(BaseRepository[Service]):
             service.name = name
         if description is not None:
             service.description = description
-        if image_url is not None:
-            service.image_url = image_url
         if price is not None:
             service.price = price
         if duration_minutes is not None:

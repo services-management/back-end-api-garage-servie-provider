@@ -10,6 +10,7 @@ from sqlalchemy.orm import configure_mappers
 from src.schemas.admin import adminModel
 from src.schemas.techincal import TechnicalModel
 from src.schemas.product import Product, Category, Inventory, Service, ServiceProductAssociation
+from src.schemas.file import FileUpload
 # admin_repositories = AdminRepository()
 app = FastAPI(
     title="Fixing Service API",

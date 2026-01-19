@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field,model_validator
 from typing import Optional, List,Any
 from decimal import Decimal
+from src.models.file_model import FileUploadResponse
 
 
 class ServiceProductAssociationEmbedded(BaseModel):
@@ -30,7 +31,6 @@ class ServiceBase(BaseModel):
         example="Standard oil change service.",
         description="Detailed description of the service."
     )
-    image_url: str = Field(..., max_length=250, description="URL to the service image.")
     price: Decimal = Field(..., gt=Decimal("0"), description="Price of the service")
     duration_minutes: int = Field(..., gt=0, description="Typical duration of the service in minutes.")
     is_available: bool = Field(True, example=True, description="Indicates if the service is currently available.")
@@ -46,7 +46,6 @@ class ServiceCreate(ServiceBase):
 class ServiceUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = None
-    image_url: Optional[str] = Field(None, max_length=250)
     price: Optional[Decimal] = Field(None, gt=Decimal("0"))
     duration_minutes: Optional[int] = Field(None, gt=0)
     is_available: Optional[bool] = None
@@ -59,3 +58,4 @@ class ServiceUpdate(BaseModel):
 class ServiceResponse(ServiceBase):
     service_id: int = Field(..., example=123)
     associations: List[ServiceProductAssociationResponse] = Field(default_factory=list)
+    images: Optional[List[FileUploadResponse]] = None

@@ -1,13 +1,25 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException, Depends
+from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, Query
+from sqlalchemy.orm import Session
+from typing import List
+
 from src.service.s3 import upload_bytes
 from src.dependency.auth import get_current_admin_user
+from src.config.database import get_db
+from src.repositories.file_repositories import FileUploadRepository
+from src.schemas.file import FileType
+from src.models.file_model import FileUploadResponse
 
 router = APIRouter(prefix="/upload", tags=["File Uploads"])
 
 
-@router.post("/image", dependencies=[Depends(get_current_admin_user)])
-async def upload_image(file: UploadFile = File(...)):
-    # Basic validation for images
+@router.post("/product/{product_id}/image", response_model=FileUploadResponse)
+async def upload_product_image(
+    product_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: str = Depends(get_current_admin_user),
+):
+    """Upload image and associate with product"""
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image files are allowed")
 
@@ -17,6 +29,68 @@ async def upload_image(file: UploadFile = File(...)):
 
     try:
         url = upload_bytes(data, file_name=file.filename, content_type=file.content_type)
-        return {"url": url}
+        file_repo = FileUploadRepository(db)
+        file_upload = file_repo.create(
+            filename=file.filename,
+            file_url=url,
+            file_type=FileType.PRODUCT,
+            associated_id=product_id,
+            file_size=len(data),
+            content_type=file.content_type,
+        )
+        return file_upload
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
+
+
+@router.post("/service/{service_id}/image", response_model=FileUploadResponse)
+async def upload_service_image(
+    service_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: str = Depends(get_current_admin_user),
+):
+    """Upload image and associate with service"""
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only image files are allowed")
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    try:
+        url = upload_bytes(data, file_name=file.filename, content_type=file.content_type)
+        file_repo = FileUploadRepository(db)
+        file_upload = file_repo.create(
+            filename=file.filename,
+            file_url=url,
+            file_type=FileType.SERVICE,
+            associated_id=service_id,
+            file_size=len(data),
+            content_type=file.content_type,
+        )
+        return file_upload
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
+
+
+@router.get("/product/{product_id}/images", response_model=List[FileUploadResponse])
+async def get_product_images(
+    product_id: int,
+    db: Session = Depends(get_db),
+    _: str = Depends(get_current_admin_user),
+):
+    """Get all images for a product"""
+    file_repo = FileUploadRepository(db)
+    return file_repo.list_by_product(product_id)
+
+
+@router.get("/service/{service_id}/images", response_model=List[FileUploadResponse])
+async def get_service_images(
+    service_id: int,
+    db: Session = Depends(get_db),
+    _: str = Depends(get_current_admin_user),
+):
+    """Get all images for a service"""
+    file_repo = FileUploadRepository(db)
+    return file_repo.list_by_service(service_id)
