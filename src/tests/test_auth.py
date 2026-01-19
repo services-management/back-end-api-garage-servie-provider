@@ -8,7 +8,7 @@ from src.utils.hash_password import hash_password
 @pytest.fixture(scope="function")
 def admin_user(db_session):
     admin_repo = AdminRepository(db_session)
-    user = admin_repo.create_admin(
+    user = admin_repo.create(
         username="testadmin",
         password=hash_password("securepassword"),
         email_phone="admin@example.com",
@@ -30,7 +30,7 @@ def authenticated_admin_client(client, admin_user):
 def technical_user(db_session):
     from src.repositories.technical_repositorie import TechnicalRepository
     tech_repo = TechnicalRepository(db_session)
-    user = tech_repo.create_technical(
+    user = tech_repo.create(
         username="tech_staff_1",
         password=hash_password("techpass"),
         name="Tech One",
