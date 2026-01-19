@@ -9,8 +9,8 @@ from jose import JWTError, jwt
 load_dotenv()
 # --- CONFIGURATION (Set secure, unique keys) ---
 # NOTE: Replace 'YOUR_SECRET_KEY_HERE' with a real, long, random key loaded from env vars!
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM")
+SECRET_KEY = os.getenv("SECRET_KEY","TmFl9_ch01kORiplQKsWev9tE0WmXyZg1uuGzq2OZcU")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 day
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
