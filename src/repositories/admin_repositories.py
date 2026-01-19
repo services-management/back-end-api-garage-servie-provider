@@ -1,10 +1,13 @@
 
-from sqlalchemy.orm import Session
-from typing import Optional
-from src.schemas.admin import adminModel
-from src.models.admin_model import AdminCreate
-from src.utils.hash_password import hash_password
 import uuid
+from typing import Optional
+
+from sqlalchemy.orm import Session
+
+from src.models.admin_model import AdminCreate
+from src.schemas.admin import adminModel
+from src.utils.hash_password import hash_password
+
 
 class AdminRepository:
     '''implement the data access logic for the admin entity'''

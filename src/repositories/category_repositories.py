@@ -1,9 +1,10 @@
 
 # src/repositories/category_repository.py
 
-from typing import Optional, List
-from sqlalchemy.orm import Session
+from typing import List, Optional
+
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from src.repositories.base_repositories import BaseRepository
 from src.schemas.product import Category  # <-- use the SQLAlchemy model

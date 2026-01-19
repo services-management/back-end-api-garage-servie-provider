@@ -5,14 +5,15 @@ Example script to test database connection without requiring SECRET_KEY.
 This demonstrates that database connection works independently of JWT/authentication settings.
 """
 
-import sys
 import os
+import sys
 
 # Add parent directory to path to import from src
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.config.database import Database, get_db
 from sqlalchemy import text
+
+from src.config.database import Database
 
 
 def test_database_connection():
@@ -28,7 +29,7 @@ def test_database_connection():
         with db.session_scope() as session:
             result = session.execute(text("SELECT version()"))
             version = result.scalar()
-            print(f"✅ Database connection successful!")
+            print("✅ Database connection successful!")
             print(f"   PostgreSQL version: {version}\n")
             
             # Test query

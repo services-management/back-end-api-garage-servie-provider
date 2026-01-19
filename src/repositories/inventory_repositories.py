@@ -1,9 +1,9 @@
 
 # src/repositories/inventory_repository.py
 
-from typing import Optional, Dict, Any
 from datetime import date
 from decimal import Decimal
+from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 

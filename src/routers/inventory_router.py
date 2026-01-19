@@ -1,12 +1,15 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
 
 from src.config.database import get_db
 from src.controller.inventory_controller import InventoryController
+from src.dependency.auth import (get_current_admin_user,
+                                 get_current_user_admin_or_technical)
+from src.models.inventory_model import InventoryOut, InventoryUpdate
 from src.repositories.inventory_repositories import InventoryRepository
-from src.models.inventory_model import InventoryOut, InventoryUpdate, InventorySnapshot
-from src.dependency.auth import get_current_user_admin_or_technical, get_current_admin_user
+
 router = APIRouter(
     prefix="/inventory",
     tags=["Inventory Management"],

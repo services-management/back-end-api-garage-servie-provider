@@ -1,8 +1,10 @@
 
 # src/controllers/category_controller.py
 
-from typing import Optional, List
+from typing import List, Optional
+
 from sqlalchemy.orm import Session
+
 from src.repositories.category_repositories import CategoryRepository
 from src.schemas.product import Category  # ORM model
 

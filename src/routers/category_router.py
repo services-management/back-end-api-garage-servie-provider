@@ -1,13 +1,15 @@
 
 # src/api/routes/categories.py
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
 
 from src.config.database import get_db
 from src.controller.category_controller import CategoryController  # fixed name
-from src.models.category_model import CategoryCreate, CategoryResponse, CategoryUpdate  # use schemas, not models
 from src.dependency.auth import get_current_admin_user, get_optional_user
+from src.models.category_model import (  # use schemas, not models
+    CategoryCreate, CategoryResponse, CategoryUpdate)
 
 router = APIRouter(
     prefix="/category",

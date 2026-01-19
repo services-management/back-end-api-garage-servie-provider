@@ -1,9 +1,10 @@
-from typing import Optional, List
 from decimal import Decimal
+from typing import List, Optional
+
 from sqlalchemy.orm import Session
 
-from src.repositories.service_repositories import ServiceRepository
 from src.repositories.product_repositories import ProductRepository
+from src.repositories.service_repositories import ServiceRepository
 from src.schemas.product import Service
 
 

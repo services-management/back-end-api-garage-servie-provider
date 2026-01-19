@@ -1,8 +1,10 @@
-from typing import Optional, List
-from pydantic import BaseModel, Field, validator
-from uuid import UUID
-from datetime import datetime
 import re
+from datetime import datetime
+from typing import List, Optional
+from uuid import UUID
+
+from pydantic import BaseModel, Field, validator
+
 
 # User Schemas
 class UserBase(BaseModel):

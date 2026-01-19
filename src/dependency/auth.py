@@ -1,16 +1,20 @@
 # src/dependencies/auth.py
-from fastapi import Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
-from uuid import UUID
 from typing import Optional, Union
+from uuid import UUID
+
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.orm import Session
+
 # --- Project Imports ---
-from src.config.database import get_db #  database session dependency
-from src.repositories.admin_repositories import AdminRepository # The repo to fetch the admin
-from src.models.admin_model import AdminOut # The secure output Pydantic model
-from src.service.auth import decode_token # The utility we just created
-from src.repositories.technical_repositorie import TechnicalRepository 
+from src.config.database import get_db  # database session dependency
+from src.models.admin_model import AdminOut  # The secure output Pydantic model
 from src.models.technical_model import TechnicalOut
+from src.repositories.admin_repositories import \
+    AdminRepository  # The repo to fetch the admin
+from src.repositories.technical_repositorie import TechnicalRepository
+from src.service.auth import decode_token  # The utility we just created
+
 # Define the OAuth2 scheme. FastAPI uses the URL provided here for documentation.
 security = HTTPBearer()
 

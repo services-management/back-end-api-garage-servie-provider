@@ -1,10 +1,11 @@
 
 # src/controller/inventory.py
-from typing import List, Optional
-from decimal import Decimal
 from datetime import date
+from decimal import Decimal
+from typing import List
 
 from sqlalchemy.orm import Session
+
 from src.repositories.inventory_repositories import InventoryRepository
 
 

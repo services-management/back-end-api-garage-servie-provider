@@ -1,0 +1,63 @@
+
+# GitHub Actions will trigger.
+
+# You will see the quality-and-test box turn green.
+
+# Only then will the build-verification box start.
+
+# If both are green, you have 100% confidence that your code works and your Docker environment is ready.
+
+name: FastAPI CI
+# this workflow runs on every push or pull request to master branch 
+# it perform "Continuous Integration" (CI) to validate code quality and buildability. 
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+jobs:
+  # (Tests & Linting)
+  quality-and-test:
+    # we use the latest Ubuntu runner provided by github
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1 .Pull the code from the repository into the runner
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # set up the python environment 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+      
+      # Install necessary tools and app requirement 
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt ruff
+      
+      # Static analysis : check for syntax errors and "smelly" code
+      - name: Lint with Ruff 
+        run: ruff check .
+
+      # Automated testing: Run logic tests using pytest
+      - name: Run tests
+        run: |
+          export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+          pytest -v
+
+  # CONTAINER VERIFICATION
+  # This only runs if 'quality-and-test' finishes successfully.
+  build-verification:
+    needs: quality-and-test
+    runs-on: ubuntu-latest
+    steps:    
+      - name: Checkout code
+        uses: actions/checkout@v4  
+      # Continer validation: Ensure the dockerfile build sucessfully 
+      - name: Verify Docker Build
+        run: docker build -t backend-test:${{ github.sha }} .

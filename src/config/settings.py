@@ -1,8 +1,9 @@
-from pydantic_settings import BaseSettings
-from pydantic import model_validator, PostgresDsn
-from dotenv import load_dotenv
-from typing import Optional
 import os
+from typing import Optional
+
+from dotenv import load_dotenv
+from pydantic import model_validator
+from pydantic_settings import BaseSettings
 
 load_dotenv()
 
