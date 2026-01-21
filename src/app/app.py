@@ -7,10 +7,8 @@ from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import configure_mappers
 # Import all models to register them with SQLAlchemy Base
-from src.schemas.admin import adminModel
-from src.schemas.techincal import TechnicalModel
-from src.schemas.product import Product, Category, Inventory, Service, ServiceProductAssociation
-from src.schemas.file import FileUpload
+from src.schemas.admin import adminModel 
+from src.schemas.file import FileUpload  # noqa: F401
 # admin_repositories = AdminRepository()
 app = FastAPI(
     title="Fixing Service API",

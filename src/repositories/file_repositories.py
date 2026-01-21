@@ -1,6 +1,7 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from src.schemas.file import FileUpload, FileType
+from src.service.s3 import delete_object
 
 
 class FileUploadRepository:
@@ -46,10 +47,15 @@ class FileUploadRepository:
         ).all()
 
     def delete(self, file_id: int) -> bool:
-        """Delete a file upload record"""
+        """Delete a file upload record and also the file in S3"""
         file = self.get_by_id(file_id)
         if not file:
             return False
+        
+        # 1. Delete from S3
+        delete_object(file.file_url)
+        
+        # 2. Delete from DB
         self.db.delete(file)
         self.db.commit()
         return True

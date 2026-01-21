@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 from src.repositories.product_repositories import ProductRepository
 from src.repositories.category_repositories import CategoryRepository
 from src.repositories.file_repositories import FileUploadRepository
-from src.schemas.file import FileType
 from src.schemas.product import Product  # use ORM model, not schema
 
 
@@ -94,6 +93,8 @@ class ProductController:
         category_name: Optional[str] = None,
         description: Optional[str] = None,
         status: Any = None,
+        current_stock: Optional[Decimal | float] = None,
+        min_stock_level: Optional[Decimal | float] = None,
     ) -> Optional[Product]:
         """
         Update a product's fields.
@@ -131,7 +132,9 @@ class ProductController:
             unit_cost=unit_cost,
             category_id=resolved_category_id,
             description=description,
-            status=status
+            status=status,
+            current_stock=current_stock,
+            min_stock_level=min_stock_level
         )
         return updated
 

@@ -3,6 +3,7 @@
 
 from typing import Optional, List, Any
 from decimal import Decimal
+from datetime import date
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select
 
@@ -76,7 +77,6 @@ class ProductRepository(BaseRepository[Product]):
         unit_cost: Optional[Decimal | float] = None,
         category_id: Optional[int] = None,
         description: Optional[str] = None, # Added
-        image_url: Optional[str] = None,   # Added
         status: Any = None,                # Added (ProductStatus Enum)
         initial_stock: Decimal | float = Decimal("0"),
         min_stock_level: Optional[Decimal | float] = None,
@@ -103,7 +103,6 @@ class ProductRepository(BaseRepository[Product]):
                 unit_cost=to_dec(unit_cost),
                 category_id=category_id,
                 description=description,
-                image_url=image_url,
                 status=status
             )
 
@@ -139,8 +138,9 @@ class ProductRepository(BaseRepository[Product]):
         unit_cost: Optional[Decimal | float] = None,
         category_id: Optional[int] = None,
         description: Optional[str] = None, # Added
-        image_url: Optional[str] = None,   # Added
         status: Any = None,               # Added (ProductStatus Enum)
+        current_stock: Optional[Decimal | float] = None,
+        min_stock_level: Optional[Decimal | float] = None,
     ) -> Optional[Product]:
         # Category validation if provided
         if category_id is not None and not self.category_repo.get_by_id(category_id):
@@ -151,6 +151,14 @@ class ProductRepository(BaseRepository[Product]):
             if v is None:
                 return None
             return v if isinstance(v, Decimal) else Decimal(str(v))
+
+        # Update Inventory if provided
+        if current_stock is not None or min_stock_level is not None:
+            self.inventory_repo.update_inventory(
+                product_id=product_id,
+                current_stock=to_dec(current_stock),
+                min_stock_level=to_dec(min_stock_level)
+            )
 
         update_data = {}
         if name is not None:
@@ -163,8 +171,6 @@ class ProductRepository(BaseRepository[Product]):
             update_data["category_id"] = category_id
         if description is not None:
             update_data["description"] = description
-        if image_url is not None:
-            update_data["image_url"] = image_url
         if status is not None:
             update_data["status"] = status
         # Use BaseRepository.update(id, data) which commits & refreshes

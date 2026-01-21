@@ -1,7 +1,7 @@
 import enum
 from datetime import date, time, datetime
 from typing import Optional, List
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, validator
 from uuid import UUID
 from decimal import Decimal
 

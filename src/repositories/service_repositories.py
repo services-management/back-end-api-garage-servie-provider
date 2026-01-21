@@ -17,10 +17,13 @@ class ServiceRepository(BaseRepository[Service]):
     def get_by_id_with_relations(self, service_id: int) -> Optional[Service]:
         stmt = (
             select(Service)
-            .options(joinedload(Service.associations))
+            .options(
+                joinedload(Service.associations)
+                .joinedload(ServiceProductAssociation.product)
+            )
             .where(Service.service_id == service_id)
         )
-        return self.db.execute(stmt).scalars().first()
+        return self.db.execute(stmt).scalars().unique().first()
 
     def get_by_name(self, name: str) -> Optional[Service]:
         stmt = select(Service).where(Service.name == name)
@@ -33,7 +36,10 @@ class ServiceRepository(BaseRepository[Service]):
     def list_with_relations(self, skip: int = 0, limit: int = 100) -> List[Service]:
         stmt = (
             select(Service)
-            .options(joinedload(Service.associations))
+            .options(
+                joinedload(Service.associations)
+                .joinedload(ServiceProductAssociation.product)
+            )
             .offset(skip)
             .limit(limit)
         )
@@ -42,11 +48,15 @@ class ServiceRepository(BaseRepository[Service]):
     def list_available(self, skip: int = 0, limit: int = 100) -> List[Service]:
         stmt = (
             select(Service)
-            .where(Service.is_available == True)
+            .options(
+                joinedload(Service.associations)
+                .joinedload(ServiceProductAssociation.product)
+            )
+            .where(Service.is_available)
             .offset(skip)
             .limit(limit)
         )
-        return list(self.db.execute(stmt).scalars().all())
+        return list(self.db.execute(stmt).scalars().unique().all())
 
     def create(
         self,

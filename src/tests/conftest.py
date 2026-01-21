@@ -61,8 +61,8 @@ def setup_test_admin(db_engine):
     # This should be done using the repository logic you defined in init_db
     db = SessionLocal()
     try:
-        from src.repositories import AdminRepository
-        repo = AdminRepository(db)
+        # from src.repositories import AdminRepository
+        # repo = AdminRepository(db)
         # You need a method in your repository to create the default user.
         # repo.create_default_admin_for_tests() 
         db.commit()

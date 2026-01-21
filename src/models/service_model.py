@@ -13,15 +13,19 @@ class ServiceProductAssociationEmbedded(BaseModel):
         from_attributes = True
 class ServiceProductAssociationResponse(ServiceProductAssociationEmbedded):
     product_id: Optional[int] = Field(None, example=1)
+    file_url: Optional[str] = Field(None, example="http://minio:9000/garas-fixing/images/product.jpg")
     @model_validator(mode='before')
     @classmethod
     def get_name_from_relationship(cls, data: Any) -> Any:
         """
         Extraction logic: If the SQLAlchemy object has a 'product' relationship,
-        extract the name from it.
+        extract the name and image_url from it.
         """
         if hasattr(data, "product") and data.product:
             data.product_name = data.product.name
+            # If the product has images loaded (e.g. via controller), use the first one
+            if hasattr(data.product, "images") and data.product.images:
+                data.file_url = data.product.images[0].file_url
         return data
 
 class ServiceBase(BaseModel):

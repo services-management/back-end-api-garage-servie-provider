@@ -1,20 +1,15 @@
 from typing import List, Optional, Dict, Any, Tuple
 from uuid import UUID
-from datetime import datetime, date
-from decimal import Decimal
+from datetime import datetime, date, time
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, or_, func, select, text
-from sqlalchemy.exc import IntegrityError, NoResultFound
+from sqlalchemy import or_, func
+from sqlalchemy.exc import IntegrityError
 import logging
 import random
 
 from src.models.user import User, UserStatus
 from src.schemas.user import (
-    UserCreate, 
-    UserUpdate, 
-    UserResponse,
-    UserFilter,
-    TelegramLink
+    UserFilter
 )
 
 logger = logging.getLogger(__name__)
@@ -304,7 +299,7 @@ class UserRepository:
             logger.info(f"User {user_id} updated successfully")
             return user
             
-        except ValueError as e:
+        except ValueError:
             self.db.rollback()
             raise
         except Exception as e:

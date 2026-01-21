@@ -8,6 +8,10 @@ TECH_USERNAME = "tech_staff_1" # Must match the user created in test_9
 TECH_PASSWORD = "techpass"     # Must match the password used in test_9
 
 # --- UTILITY FUNCTION ---
+def get_auth_header():
+    """Returns a dummy authorization header for testing admin rejection."""
+    return {"Authorization": "Bearer dummy_admin_token"}
+
 def get_tech_auth_header():
     """Returns the Authorization header dictionary for the Technical user."""
     if TECH_AUTH_TOKEN is None:

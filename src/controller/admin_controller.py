@@ -1,5 +1,5 @@
 from fastapi import HTTPException, status
-from typing import List, Optional
+from typing import Optional
 from src.repositories.admin_repositories import AdminRepository
 from src.repositories.technical_repositorie import TechnicalRepository
 from src.models.admin_model import AdminLogin, AdminCreate, AdminUpdate

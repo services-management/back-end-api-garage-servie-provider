@@ -1,12 +1,11 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List
 
 from src.config.database import get_db
 from src.controller.product_controller import ProductController
 from src.models.product_model import ProductCreate, ProductUpdate , ProductResponse # ORM model (for response via orm_mode)
-from pydantic import BaseModel
 from src.dependency.auth import get_current_admin_user ,get_optional_user
 router = APIRouter(
     prefix="/product", tags=["Product Management"]
@@ -99,6 +98,8 @@ def update_product(
             category_name=payload.category_name,
             description=payload.description,
             status=payload.status,
+            current_stock=payload.current_stock,
+            min_stock_level=payload.min_stock_level,
         )
         if not updated:
             raise HTTPException(status_code=404, detail="Product not found")

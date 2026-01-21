@@ -11,7 +11,7 @@ import os
 # Add parent directory to path to import from src
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.config.database import Database, get_db
+from src.config.database import Database
 from sqlalchemy import text
 
 
@@ -28,7 +28,7 @@ def test_database_connection():
         with db.session_scope() as session:
             result = session.execute(text("SELECT version()"))
             version = result.scalar()
-            print(f"✅ Database connection successful!")
+            print("✅ Database connection successful!")
             print(f"   PostgreSQL version: {version}\n")
             
             # Test query

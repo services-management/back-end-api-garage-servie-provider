@@ -1,14 +1,15 @@
 from fastapi.testclient import TestClient
 from src.app.app import app
-from src.dependency import get_db, get_admin_controller
+from src.dependency import get_admin_controller
 from src.controller.admin_controller import AdminController
+from src.config.database import SessionLocal
 import uuid
 
 # A fixture/function that yields a test database session
 def override_get_db():
     try:
         # Assuming you have a test session defined somewhere
-        db = TestingSessionLocal() 
+        db = SessionLocal() 
         yield db
     finally:
         db.close()

@@ -58,3 +58,26 @@ def upload_bytes(
 
     client.put_object(Bucket=bucket, Key=key, Body=data, **extra)
     return _public_url(bucket, key, settings.S3_ENDPOINT_URL)
+
+
+def delete_object(url: str) -> bool:
+    """Delete an object from MinIO given its public URL."""
+    try:
+        bucket = settings.S3_BUCKET_NAME
+        # Extract the key from the URL
+        # URL format: http://endpoint/bucket/prefix/uuid-name
+        parsed = urlparse(url)
+        # path is /bucket/prefix/uuid-name, so we skip the first 2 parts (/bucket/)
+        path_parts = parsed.path.lstrip("/").split("/")
+        if len(path_parts) < 2:
+            return False
+        
+        # The first part is the bucket name, the rest is the key
+        key = "/".join(path_parts[1:])
+        
+        client = get_s3_client()
+        client.delete_object(Bucket=bucket, Key=key)
+        return True
+    except Exception as e:
+        print(f"Error deleting from S3: {e}")
+        return False

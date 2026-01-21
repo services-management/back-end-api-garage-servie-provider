@@ -4,8 +4,7 @@ from src.utils.verify_password import verify_password
 from src.utils.hash_password import hash_password # Added for updates
 from src.schemas.techincal import TechnicalModel# Added TechnicalStatusUpdate
 from fastapi import HTTPException, status
-from typing import Optional, List, Union
-from sqlalchemy.orm import Session
+from typing import Optional, List
 from uuid import UUID
 class TechnicalController:
     """Handles the business logic for technical user authentication and management."""

@@ -22,7 +22,6 @@ class Product(Base):
     unit_cost = Column(Numeric(10,2),nullable=True)
     selling_price = Column(Numeric(10,2), nullable=False)
     description = Column(String(255), nullable=True)
-    image_url = Column(String(255), nullable=True)
     status = Column(SQLEnum(ProductStatus), default=ProductStatus.ACTIVE)
     # foreign key 
     category_id = Column(Integer, ForeignKey("categories.categoryID"))

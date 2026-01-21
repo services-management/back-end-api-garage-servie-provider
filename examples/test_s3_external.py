@@ -14,7 +14,7 @@ def test_s3_connection():
     try:
         client = get_s3_client()
         # Try to list objects in the bucket
-        response = client.list_objects_v2(Bucket=settings.S3_BUCKET_NAME, MaxKeys=1)
+        client.list_objects_v2(Bucket=settings.S3_BUCKET_NAME, MaxKeys=1)
         print("✅ S3 Connection successful! (Bucket exists and is accessible)")
         return True
     except Exception as e:
@@ -29,7 +29,7 @@ def test_upload():
     
     try:
         url = upload_bytes(dummy_data, file_name=file_name, content_type=content_type)
-        print(f"✅ Upload successful!")
+        print("✅ Upload successful!")
         print(f"🔗 Public URL: {url}")
         return True
     except Exception as e:

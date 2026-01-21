@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from src.repositories.service_repositories import ServiceRepository
 from src.repositories.product_repositories import ProductRepository
 from src.repositories.file_repositories import FileUploadRepository
-from src.schemas.file import FileType
 from src.schemas.product import Service
 
 
@@ -54,30 +53,52 @@ class ServiceController:
         service = self.service_repo.get_by_id(service_id)
         if service:
             service.images = self.file_repo.list_by_service(service_id)
+            # Fetch images for each associated product
+            if hasattr(service, "associations") and service.associations:
+                for assoc in service.associations:
+                    if assoc.product:
+                        assoc.product.images = self.file_repo.list_by_product(assoc.product_id)
         return service
 
     def get_service_with_associations(self, service_id: int) -> Optional[Service]:
         service = self.service_repo.get_by_id_with_relations(service_id)
         if service:
             service.images = self.file_repo.list_by_service(service_id)
+            # Fetch images for each associated product
+            if service.associations:
+                for assoc in service.associations:
+                    if assoc.product:
+                        assoc.product.images = self.file_repo.list_by_product(assoc.product_id)
         return service
 
     def list_services(self, skip: int = 0, limit: int = 100) -> List[Service]:
         services = self.service_repo.list(skip=skip, limit=limit)
         for s in services:
             s.images = self.file_repo.list_by_service(s.service_id)
+            if hasattr(s, "associations") and s.associations:
+                for assoc in s.associations:
+                    if assoc.product:
+                        assoc.product.images = self.file_repo.list_by_product(assoc.product_id)
         return services
 
     def list_services_with_associations(self, skip: int = 0, limit: int = 100) -> List[Service]:
         services = self.service_repo.list_with_relations(skip=skip, limit=limit)
         for s in services:
             s.images = self.file_repo.list_by_service(s.service_id)
+            if s.associations:
+                for assoc in s.associations:
+                    if assoc.product:
+                        assoc.product.images = self.file_repo.list_by_product(assoc.product_id)
         return services
 
     def list_available_services(self, skip: int = 0, limit: int = 100) -> List[Service]:
         services = self.service_repo.list_available(skip=skip, limit=limit)
         for s in services:
             s.images = self.file_repo.list_by_service(s.service_id)
+            if hasattr(s, "associations") and s.associations:
+                for assoc in s.associations:
+                    if assoc.product:
+                        assoc.product.images = self.file_repo.list_by_product(assoc.product_id)
         return services
 
     def update_service(

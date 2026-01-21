@@ -67,13 +67,17 @@ class ProductUpdate(BaseModel):
     description :Optional[str] = Field(None,min_length=1,max_length=255)
     category_name: Optional[str] = Field(None, example="oil")
     status: Optional[ProductStatus] = None
+    # Inventory updates
+    current_stock: Optional[Decimal] = Field(None, ge=Decimal("0"), example=Decimal("100.0"))
+    min_stock_level: Optional[Decimal] = Field(None, ge=Decimal("0"), example=Decimal("20.0"))
+
     @validator("name")
     def name_not_blank(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and not v.strip():
             raise ValueError("Product name cannot be blank.")
         return v
 
-    @validator("selling_price", "unit_cost", pre=True)
+    @validator("selling_price", "unit_cost", "current_stock", "min_stock_level", pre=True)
     def to_decimal_update(cls, v):
         if v is None:
             return v
