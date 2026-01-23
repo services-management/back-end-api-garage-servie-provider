@@ -62,7 +62,7 @@ def test_create_product_unauthorized(client):
     }
     
     response = client.post("/product/", json=product_data)
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.status_code == 401
 
 def test_get_product_success(authenticated_admin_client):
     """Test retrieving a product by ID, including nested category and inventory."""

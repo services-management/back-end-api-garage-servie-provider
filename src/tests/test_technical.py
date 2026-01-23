@@ -13,7 +13,7 @@ def test_technical_login_success(client, technical_user):
 def test_read_technical_me_unauthorized(client):
     """Test access to a secured technical endpoint without a token."""
     response = client.get("/technical/me")
-    assert response.status_code == 403
+    assert response.status_code == 401
     assert response.json()["detail"] == "Not authenticated"
 
 def test_read_technical_me_success(authenticated_technical_client, technical_user):

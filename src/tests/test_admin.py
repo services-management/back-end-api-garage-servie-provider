@@ -35,7 +35,7 @@ def test_admin_login_non_existent_user(client):
 def test_read_admin_me_unauthorized(client):
     """Test access to a secured endpoint without a token."""
     response = client.get("/admin/me")
-    assert response.status_code == 403
+    assert response.status_code == 401
     # assert response.json()["detail"] == "Not authenticated"
 
 
