@@ -16,18 +16,26 @@ from src.repositories.technical_repositorie import TechnicalRepository
 from src.service.auth import decode_token  # The utility we just created
 
 # Define the OAuth2 scheme. FastAPI uses the URL provided here for documentation.
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 def get_current_technical_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)
 ) -> TechnicalOut:
-    token = credentials.credentials
     """
     Decodes the JWT token, verifies the 'technical' role, and fetches the 
     corresponding Technical user record from the database.
     If anything fails, it raises a 401 Unauthorized exception.
     """
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    token = credentials.credentials
+    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials for Technical staff",
@@ -66,14 +74,22 @@ def get_current_technical_user(
     return TechnicalOut.model_validate(technical_model)
 
 def get_current_admin_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)
 ) -> AdminOut:
-    token = credentials.credentials
     """
     Decodes the JWT token, validates the Admin ID, and fetches the Admin object.
     If anything fails, it raises a 401 Unauthorized exception.
     """
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    token = credentials.credentials
+    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -112,9 +128,16 @@ def get_current_admin_user(
     return AdminOut.model_validate(admin_model)
 
 def get_current_user_admin_or_technical(
-        credentials : HTTPAuthorizationCredentials = Depends(security),
+        credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
         db: Session = Depends(get_db)
 ):
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     token = credentials.credentials
     payload = decode_token(token)
 
@@ -183,7 +206,7 @@ async def get_optional_user(
             admin = AdminRepository(db).get_by_id(user_id)
             return AdminOut.model_validate(admin) if admin else None
 
-        if role == "techincal":
+        if role == "technical":
             tech = TechnicalRepository(db).get(user_id)
             return TechnicalOut.model_validate(tech) if tech else None
         
