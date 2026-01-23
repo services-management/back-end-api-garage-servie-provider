@@ -60,3 +60,43 @@ class ServiceUpdate(BaseModel):
 class ServiceResponse(ServiceBase):
     service_id: int = Field(..., example=123)
     associations: List[ServiceProductAssociationResponse] = Field(default_factory=list)
+
+class ComboServiceBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100, example="Oil Change + Filter Replacement")
+    description: Optional[str] = Field(
+        None,
+        example="Complete oil and filter service package.",
+        description="Detailed description of the combo service."
+    )
+    image_url: Optional[str] = Field(None, max_length=250, description="URL to the combo service image.")
+    is_available: bool = Field(True, example=True, description="Indicates if the combo is available.")
+
+    class Config:
+        from_attributes = True
+
+
+class ComboServiceCreate(ComboServiceBase):
+    service_names: List[str] = Field(
+        ...,
+        min_items=2,
+        example=["Oil Change", "Filter Replacement"],
+        description="List of service names to combine"
+    )
+
+
+class ComboServiceUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = None
+    image_url: Optional[str] = Field(None, max_length=250)
+    is_available: Optional[bool] = None
+    service_names: Optional[List[str]] = Field(None, min_items=2)
+
+    class Config:
+        from_attributes = True
+
+
+class ComboServiceResponse(ComboServiceBase):
+    combo_service_id: int = Field(..., example=1)
+    total_price: Decimal = Field(..., example=Decimal("100.00"), description="Total price of all combined services")
+    total_duration_minutes: int = Field(..., example=120, description="Total duration of all services combined")
+    services: List[ServiceResponse] = Field(default_factory=list)

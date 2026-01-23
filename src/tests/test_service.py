@@ -48,7 +48,7 @@ def test_create_service_unauthenticated(client: TestClient):
             "associations": [],
         },
     )
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 def test_create_service_as_technical_user(authenticated_technical_client: TestClient):
     response = authenticated_technical_client.post(
@@ -149,7 +149,7 @@ def test_update_service_unauthenticated(client: TestClient):
         "/service/1",
         json={"name": "Won't Update"},
     )
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 # Test deleting a service
@@ -184,7 +184,7 @@ def test_delete_service_not_found(authenticated_admin_client: TestClient):
 
 def test_delete_service_unauthenticated(client: TestClient):
     response = client.delete("/service/1")
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 def test_delete_service_as_technical_user(authenticated_technical_client: TestClient):
     response = authenticated_technical_client.delete("/service/1")

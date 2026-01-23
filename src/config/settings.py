@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     SECRET_KEY: Optional[str] = os.getenv("SECRET_KEY", "a_very_secret_key_change_in_production")
     ALGORITHM: str = "HS256"
 
+    # S3/MinIO settings
+    S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "https://fsgw.itedev.online")
+    S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "EzFx5KQ4H6QalA0ww6cv")
+    S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "4dJQYXt4NQ9aizXiNP8OfBM7Fw0Gda07WO81hy1P")
+    S3_BUCKET: str = os.getenv("S3_BUCKET", "garas-fixing")
+    S3_REGION: str = os.getenv("S3_REGION", "us-east-1")
+
     @model_validator(mode="after")
     def construct_db_url(self):
         """Construct DATABASE_URL from individual components if not provided.

@@ -1,7 +1,8 @@
 
 from typing import List
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from src.config.database import get_db
@@ -9,6 +10,7 @@ from src.controller.product_controller import ProductController
 from src.dependency.auth import get_current_admin_user, get_optional_user
 from src.models.product_model import (  # ORM model (for response via orm_mode)
     ProductCreate, ProductResponse, ProductUpdate)
+from src.service.s3_service import S3Service
 
 router = APIRouter(
     prefix="/product", tags=["Product Management"]
@@ -37,6 +39,96 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
         return product
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/{product_id}/image",
+             status_code=200,
+             dependencies=[Depends(get_current_admin_user)],
+             tags=["Product Management"])
+def upload_product_image(
+    product_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """Upload an image for a product and update the image_url."""
+    svc = ProductController(db)
+    product = svc.get_product(product_id)
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    try:
+        # Read file content
+        content = file.file.read()
+        
+        # Generate unique S3 key
+        file_ext = file.filename.split('.')[-1] if file.filename else 'jpg'
+        s3_key = f"products/{product_id}/{uuid.uuid4()}.{file_ext}"
+        
+        # Upload to S3
+        s3_service = S3Service()
+        image_url = s3_service.upload_file_from_bytes(
+            content, 
+            s3_key, 
+            content_type=file.content_type or "image/jpeg"
+        )
+        
+        if not image_url:
+            raise HTTPException(status_code=500, detail="Failed to upload image to S3")
+        
+        # Update product with new image URL
+        updated = svc.update_product(
+            product_id=product_id,
+            image_url=image_url
+        )
+        
+        return {"product_id": product_id, "image_url": image_url, "product": updated}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error uploading image: {str(e)}")
+
+@router.put("/{product_id}/image",
+            status_code=200,
+            dependencies=[Depends(get_current_admin_user)],
+            tags=["Product Management"])
+def update_product_image(
+    product_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """Update/replace the image for a product."""
+    svc = ProductController(db)
+    product = svc.get_product(product_id)
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    try:
+        # Read file content
+        content = file.file.read()
+        
+        # Generate unique S3 key
+        file_ext = file.filename.split('.')[-1] if file.filename else 'jpg'
+        s3_key = f"products/{product_id}/{uuid.uuid4()}.{file_ext}"
+        
+        # Upload to S3
+        s3_service = S3Service()
+        image_url = s3_service.upload_file_from_bytes(
+            content, 
+            s3_key, 
+            content_type=file.content_type or "image/jpeg"
+        )
+        
+        if not image_url:
+            raise HTTPException(status_code=500, detail="Failed to upload image to S3")
+        
+        # Update product with new image URL
+        updated = svc.update_product(
+            product_id=product_id,
+            image_url=image_url
+        )
+        
+        return {"product_id": product_id, "image_url": image_url, "product": updated, "message": "Product image updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating image: {str(e)}")
 
 @router.get("/{product_id}", 
             response_model= ProductResponse)

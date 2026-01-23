@@ -7,8 +7,8 @@ FROM python:3.11-slim-bookworm
 # ----------------------------------------------------
 # 2. ENVIRONMENT
 # Set environment variables, crucial for non-root users and locale
-ENV PYTHONUNBUFFERED 1
-ENV APP_HOME /usr/src/app
+ENV PYTHONUNBUFFERED=1
+ENV APP_HOME=/usr/src/app
 
 # ----------------------------------------------------
 # 3. WORK DIRECTORY

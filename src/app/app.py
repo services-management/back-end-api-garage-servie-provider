@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, configure_mappers
 from src.config.database import Base, SessionLocal, engine, get_db
 from src.repositories.admin_repositories import AdminRepository
 from src.routers import (admin_router, category_router, inventory_router,
-                         product_router, service_router, technical_router)
+                         product_router, service_router, technical_router, combo_service_router)
 # Import all models to register them with SQLAlchemy Base
 from src.schemas.admin import adminModel
 
@@ -30,11 +30,11 @@ app.add_middleware(
 )
 DEFAULT_ADMIN_USERNAME = "super_admin"
 DEFAULT_ADMIN_PASSWORD = "change_me_123"
-def init_db():
+def init_db(): 
     """Initialize database tables"""
     db = None
     try:
-        # Create all tables
+        # Create all tables 
         Base.metadata.create_all(bind=engine)
         db = SessionLocal()
         admin_repo = AdminRepository(db)
@@ -92,3 +92,4 @@ app.include_router(product_router)
 app.include_router(category_router)
 app.include_router(inventory_router)
 app.include_router(service_router)
+app.include_router(combo_service_router)

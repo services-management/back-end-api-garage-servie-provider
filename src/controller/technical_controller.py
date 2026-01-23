@@ -44,7 +44,7 @@ class TechnicalController:
         """Update a technical user's details, rehashing the password if changed."""
         tech_user = self.get_technical_by_id(tech_id) 
 
-        update_data = tech_in.dict(exclude_unset=True)
+        update_data = tech_in.model_dump(exclude_unset=True)
         
         # BUSINESS LOGIC: Hash password if it's in the update payload
         if "password" in update_data:
