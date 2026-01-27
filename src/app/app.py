@@ -6,9 +6,13 @@ from sqlalchemy.orm import Session, configure_mappers
 from src.config.database import Base, SessionLocal, engine, get_db
 from src.repositories.admin_repositories import AdminRepository
 from src.routers import (admin_router, category_router, inventory_router,
-                         product_router, service_router, technical_router, combo_service_router)
+                         product_router, service_router, technical_router, combo_service_router,
+                         booking_router, telegram_router, auth_router)
 # Import all models to register them with SQLAlchemy Base
 from src.schemas.admin import adminModel
+# src/app/app.py
+import httpx
+from src.config.database import settings
 
 # admin_repositories = AdminRepository()
 app = FastAPI(
@@ -30,7 +34,32 @@ app.add_middleware(
 )
 DEFAULT_ADMIN_USERNAME = "super_admin"
 DEFAULT_ADMIN_PASSWORD = "change_me_123"
-def init_db(): 
+
+
+@app.on_event("startup")
+async def startup_event():
+    # --- 1. Initialize Database ---
+    try:
+        init_db()
+    except Exception as e:
+        print(f"❌ Database connection failed: {e}")
+
+    # --- 2. Setup Telegram Webhook ---
+    webhook_url = f"{settings.DOMAIN}/webhook/telegram"
+    telegram_api_url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/setWebhook"
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(telegram_api_url, json={"url": webhook_url})
+            result = response.json()
+            if result.get("ok"):
+                print(f"✅ Telegram Webhook set to: {webhook_url}")
+            else:
+                print(f"❌ Telegram Webhook Error: {result}")
+        except Exception as e:
+            print(f"❌ Connection Error during Webhook setup: {e}")
+
+def init_db():
     """Initialize database tables"""
     db = None
     try:
@@ -54,19 +83,15 @@ def init_db():
             print("✅ Database initialized successfully")
         except Exception as e:
             db.rollback()
-            print(f"⚠️  Warning: Error initializing admin user: {e}")
-        finally:
-            db.close()
+            print(f"❌ Error connecting to database: {e}")
+            print("   Please check your database configuration in .env file")
+            print("   The application will continue, but database features may not work.")
     except Exception as e:
-        print(f"❌ Error connecting to database: {e}")
-        print("   Please check your database configuration in .env file")
-        print("   The application will continue, but database features may not work.")
+        print(f"Error during initialization: {e}")
+    finally:
+        if db:
+            db.close()
 
-
-# Initialize database on startup
-@app.on_event("startup")
-async def startup_event():
-    init_db()
 
 @app.get("/app")
 def read_root():
@@ -86,6 +111,7 @@ def test_db_connection(db: Session = Depends(get_db)):
 def health_check():
     return {"status": "ok"}
 
+app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(technical_router)
 app.include_router(product_router)
@@ -93,3 +119,5 @@ app.include_router(category_router)
 app.include_router(inventory_router)
 app.include_router(service_router)
 app.include_router(combo_service_router)
+app.include_router(booking_router)
+app.include_router(telegram_router)

@@ -1,108 +1,245 @@
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import Any, List, Optional
+from typing import List, Optional
 from uuid import UUID
 
+from sqlalchemy.orm import Session,joinedload, selectinload
 from sqlalchemy import or_
-from sqlalchemy.orm import Session, joinedload, selectinload
+from src.schemas.booking import User, Booking, BookingItem, BookingStatus
+from src.models.booking_model import BookingCreate, AdminBookingCreate
+from src.schemas.product import Service,Product, ServiceProductAssociation
+from src.repositories.user_respositories import UserRepository
+from src.repositories.inventory_repositories import InventoryRepository
+from src.schemas.product import Inventory
+class BookingRepository:
+    def __init__(self, db: Session ):
+        self.db = db
+        self.user_repo = UserRepository(db)
+        self.inven_repo = InventoryRepository(db)
+    def create_booking_with_items(self, booking_info: BookingCreate, user_id: UUID) -> Booking:
+        """
+        Optimized: Creates booking and items in a single transaction with eager loading.
+        """
+        # 1. Initialize booking
+        new_booking = Booking(
+            user_id=user_id,
+            contact_phone=booking_info.contact_phone,
+            car_make=booking_info.car_make,
+            car_model=booking_info.car_model,
+            appointment_date=booking_info.appointment_date,
+            start_time=booking_info.start_time,
+            service_location=booking_info.service_location,
+            note=booking_info.note,
+            source=booking_info.source,
+            status=BookingStatus.PENDING,
+            payment_status="pending",
+            amount_paid=Decimal("0.0"),
+            total_price=Decimal("0.0")
+        )
 
-from src.models.booking_model import BookingCreate
-from src.repositories.base_repositories import BaseRepository
-from src.schemas.booking import Booking, BookingItem, User
+        self.db.add(new_booking)
+        self.db.flush()  # Secure the booking_id for foreign keys
 
-
-class BookingRepository(BaseRepository[Booking]):
-
-    def __init__(self, db:Session):
-        super().__init__(db, model=Booking)
-
-    def create_booking_with_service(self,scheme:BookingCreate,nested_services: List[Any]) -> Booking:
-        '''
-        Specialized method to handle the complex 'Shadow Account' flow.
-        We don't use self.add() here because we want to control the 
-        transaction (one commit at the end).
-        '''
-        # Handle User Identity (Check by phone)
-        user = self.db.query(User).filter(User.phone == scheme.phone).first()
-        if not user:
-            user = User(
-                phone = scheme.phone,
-                full_name = scheme.full_name,
-                is_active = False
-            )
-            self.db.add(user)
-            self.db.flush()
-
-            # Create the Booking Header
-            new_booking = Booking(
-                user_id=user.user_id,
-                car_make=scheme.car_make,
-                car_model=scheme.car_model,
-                contact_phone=scheme.phone,
-                appointment_date=scheme.appointment_date,
-                start_time=scheme.start_time,
-                service_location=scheme.service_location,
-                source=scheme.source,
-                status="PENDING",
-                payment_status="pending",
-                amount_paid=Decimal("0.00"),
-                total_price=Decimal("0.00")
-            )
-            self.db.add(new_booking)
-            self.db.flush() # get the booking_id
-            # 3. Calculate total and create items
-            total_price = Decimal("0.00")
-            
-            for service_data in nested_services:
-                # Service line item
-                service_total = service_data.service_price if hasattr(service_data, 'service_price') else Decimal("0.00")
-                
-                service_line = BookingItem(
-                    booking_id=new_booking.booking_id,
-                    service_id=service_data.service_id,
-                    product_id=None,  # Service-only item
-                    quantity=1,  # Default quantity for service
-                    price_at_purchase=service_total,
-                    item_type="service"  # Add this field to BookingItem model
-                )
-                self.db.add(service_line)
-                total_price += service_total
-
-                # Product line items
-                for product_data in getattr(service_data, 'products', []):
-                    product_total = product_data.price * Decimal(str(product_data.quantity))
-                    
-                    product_line = BookingItem(
-                        booking_id=new_booking.booking_id,
-                        service_id=service_data.service_id,
-                        product_id=product_data.product_id,
-                        quantity=product_data.quantity,
-                        price_at_purchase=product_data.price,
-                    )
-                    self.db.add(product_line)
-                    total_price += product_total
-
-            # 4. Update booking total
-            new_booking.total_price = total_price
-            
-            # 5. Commit everything
+        # 2. Process items using optimized helper
+        items_to_save, final_total = self._prepare_and_calculate_items(new_booking.booking_id, booking_info.items)
+        
+        # 3. Finalize and save
+        new_booking.total_price = final_total
+        self.db.add_all(items_to_save) # Batch add items
+        
+        try:
             self.db.commit()
-            
-            # 6. Return full booking details
-            return self.get_full_booking_details(new_booking.booking_id)
+            return self.db.query(Booking).options(
+                joinedload(Booking.items).joinedload(BookingItem.service),
+                joinedload(Booking.items).joinedload(BookingItem.product)
+            ).filter(Booking.booking_id == new_booking.booking_id).first()
+        except Exception as e:
+            self.db.rollback()
+            raise e
 
+    def _prepare_and_calculate_items(self, booking_id: int, items_in: list) -> tuple[list[BookingItem], Decimal]:
+        prepared_items = []
+        total_accumulated_price = Decimal("0.0")
+
+        # 1. Collect all Product IDs and Service IDs first for batch fetching
+        service_ids = [i.service_id for i in items_in if i.service_id]
+        direct_product_ids = [i.product_id for i in items_in if i.product_id and i.product_id != 0]
+
+        # 2. Batch fetch Services with associations
+        services_map = {}
+        if service_ids:
+            services = (
+                self.db.query(Service)
+                .options(joinedload(Service.associations).joinedload(ServiceProductAssociation.product))
+                .filter(Service.service_id.in_(service_ids))
+                .all()
+            )
+            services_map = {s.service_id: s for s in services}
+
+        # 3. Batch fetch Direct Products
+        products_map = {}
+        if direct_product_ids:
+            products = self.db.query(Product).filter(Product.product_id.in_(direct_product_ids)).all()
+            products_map = {p.product_id: p for p in products}
+
+        # 4. Process each item
+        for item_in in items_in:
+            item_qty = Decimal(str(item_in.quantity)) if item_in.quantity > 0 else Decimal("1.0")
+            unit_price = Decimal("0.0")
+            db_product_id = None
+            current_service_id = None
+            if item_in.service_id:
+                service = services_map.get(item_in.service_id)
+                if not service:
+                    raise ValueError(f"Service ID {item_in.service_id} not found.")
+                
+                current_service_id = item_in.service_id
+                unit_price += service.price # Labor
+                
+                # Add bundled products from associations
+                for assoc in service.associations:
+                    if assoc.product:
+                        unit_price += (assoc.product.selling_price * Decimal(str(assoc.quantity_required)))
+                        total_stock_to_remove = Decimal(str(assoc.quantity_required)) * item_qty
+                        self.deduct_stock_safe(assoc.product_id, total_stock_to_remove)
+            # --- BRANCH B: Standalone Product Item ---
+            # We use 'elif' so that if it's already a service, we don't treat it as a standalone product
+            elif item_in.product_id and item_in.product_id != 0:
+                product = products_map.get(item_in.product_id)
+                if not product:
+                    raise ValueError(f"Product ID {item_in.product_id} not found.")
+                
+                db_product_id = item_in.product_id
+                unit_price = product.selling_price
+                self.deduct_stock_safe(db_product_id, item_qty)
+            # --- BRANCH C: Final Calculation ---
+            # Multiplies the UNIT PRICE (bundle or product) by the QUANTITY
+            line_subtotal = unit_price * item_qty
+
+            # Add names to the object for the Pydantic validator to find
+            new_item = BookingItem(
+                booking_id=booking_id,
+                product_id=db_product_id,
+                service_id=current_service_id,
+                quantity=item_qty,
+                price_at_purchase=unit_price
+            )
+            
+            # Attach relationship objects for the Pydantic 'resolve_names' validator
+            if current_service_id:
+                service_obj = services_map.get(current_service_id)
+                new_item.service = service_obj 
+                # This is the key: set the name so Pydantic can find it
+                new_item.service_name = service_obj.name
+            if db_product_id:
+                product_obj = products_map.get(db_product_id)
+                new_item.product = product_obj
+                # This is the key: set the name so Pydantic can find it
+                new_item.product_name = product_obj.name
+
+
+            prepared_items.append(new_item)
+            total_accumulated_price += line_subtotal
+
+        return prepared_items, total_accumulated_price
+    
+    def deduct_stock_safe(self, product_id: int, quantity: Decimal):
+        # Lock the row to prevent other bookings from stealing the stock
+        inventory = (
+            self.db.query(Inventory)
+            .filter(Inventory.product_id == product_id)
+            .with_for_update()
+            .first()
+        )
+
+        if not inventory:
+            raise ValueError(f"Inventory record not found for product ID {product_id}.")
+
+        if inventory.current_stock < quantity:
+            raise ValueError(f"Insufficient stock for Product {product_id}. Available: {inventory.current_stock}")
+
+        inventory.current_stock -= quantity
+        
+        # Optional: Low stock alert
+        if inventory.min_stock_level and inventory.current_stock <= inventory.min_stock_level:
+            print(f"ALERT: Product {product_id} is running low!")
+            
+        return inventory
+    
+    def get_bookings_by_user_id(self,user_id:UUID) -> List[Booking]:
+        """
+        Get all bookings for a specific user
+        """
+        return self.db.query(Booking).filter(Booking.user_id == user_id).order_by(Booking.appointment_date.desc()).all()    
+
+    def create_admin_booking(self, booking_info:AdminBookingCreate)-> Booking:
+        """
+        Create booking by admin with assigned garage
+        """
+        user = self.user_repo.get_user_by_phone(booking_info.contact_phone)
+        # initialize booking object 
+        new_booking = Booking(
+            user_id = user.user_id,
+            contact_phone=booking_info.contact_phone,
+            car_make=booking_info.car_make,
+            car_model=booking_info.car_model,
+            appointment_date=booking_info.appointment_date,
+            start_time=booking_info.start_time,
+            service_location=booking_info.service_location,
+            note=booking_info.note,
+            source=booking_info.source,
+            internal_note=booking_info.internal_note,
+            assigned_garage_id=booking_info.assigned_garage_id,
+            status=BookingStatus.CONFIRMED,
+            payment_status="pending",
+            amount_paid=Decimal("0.0"),
+            total_price=Decimal("0.0")  # Will calculate below
+        )
+        
+        
+        self.db.add(new_booking)
+        self.db.flush() # get booking_id
+        
+        items_to_save, final_total = self._prepare_and_calculate_items(
+        new_booking.booking_id, 
+        booking_info.items
+    )
+    
+        new_booking.total_price = final_total
+        self.db.add_all(items_to_save)
+
+        try:
+            self.db.commit()
+            return self.db.query(Booking).options(
+                joinedload(Booking.items).joinedload(BookingItem.service),
+                joinedload(Booking.items).joinedload(BookingItem.product)
+            ).filter(Booking.booking_id == new_booking.booking_id).first()
+        except Exception as e:
+            self.db.rollback()
+            raise e
 
     def get_full_booking_details(self, booking_id: int) -> Optional[Booking]:
         """
         Get booking with all related data
         """
-       
         return self.db.query(Booking).options(
             joinedload(Booking.customer),
             selectinload(Booking.items).joinedload(BookingItem.product),
             selectinload(Booking.items).joinedload(BookingItem.service)
         ).filter(Booking.booking_id == booking_id).first()
-       
+
+    def get_booking_counts_by_status(self, target_date: date) -> dict:
+        """
+        Returns a summary for the Admin: 
+        {'PENDING': 5, 'IN_PROGRESS': 2, 'COMPLETED': 10}
+        """
+        from sqlalchemy import func
+        results = self.db.query(
+            Booking.status, func.count(Booking.booking_id)
+        ).filter(Booking.appointment_date == target_date).group_by(Booking.status).all()
+    
+        return {status.value: count for status, count in results}
+
     def update_payment(self, booking_id: int, amount: Decimal, payment_method: str) -> Optional[Booking]:
         """
         Update booking payment status
@@ -135,19 +272,32 @@ class BookingRepository(BaseRepository[Booking]):
         booking = self.get(booking_id)
         if booking:
             booking.technical_team_id = technical_team_id
-            booking.status = "CONFIRMED"  # Change status when team assigned
+            booking.status = BookingStatus.CONFIRMED  # Change status when team assigned
             booking.assigned_at = datetime.utcnow()  # Add this field to Booking model
             self.db.commit()
             self.db.refresh(booking)
         return booking
     
+    def get_technical_jobs(self, technical_team_id: UUID,target_date:date) -> List[Booking]:
+        """
+        The 'To-Do List' for a specific technical team.  
+        """
+        return self.db.query(Booking).filter(
+            Booking.technical_team_id == technical_team_id,
+            Booking.appointment_date == target_date,
+            Booking.status.in_([BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS])
+        ).order_by(Booking.start_time).all()
+
     def search_bookings(self, query: str = None, status: str = None, limit: int = 100)-> List[Booking]:
         """
         Search by phone number, customer name, or filter by status.
         """
         db_query = self.db.query(Booking).options(
             joinedload(Booking.customer),
-            joinedload(Booking.items)
+            # Chain the load: Booking -> Items -> Service
+            joinedload(Booking.items).joinedload(BookingItem.service),
+            # Chain the load: Booking -> Items -> Product
+            joinedload(Booking.items).joinedload(BookingItem.product)
         )
 
         if query:
@@ -216,7 +366,14 @@ class BookingRepository(BaseRepository[Booking]):
         return (
             self.db.query(Booking)
             .filter(Booking.appointment_date.between(start_date, end_date))
-            .options(joinedload(Booking.customer))
+            .options(
+                joinedload(Booking.customer),
+                # Chain the loads: Booking -> Items -> Service/Product
+                joinedload(Booking.items).joinedload(BookingItem.service),
+                joinedload(Booking.items).joinedload(BookingItem.product),
+                # Load the invoice link if it exists
+                joinedload(Booking.invoice) 
+            )
             .order_by(Booking.appointment_date, Booking.start_time)
             .all()
         )
@@ -233,3 +390,14 @@ class BookingRepository(BaseRepository[Booking]):
         return self.db.query(Booking.booking_id).filter(
             Booking.booking_id == booking_id
         ).first() is not None
+    
+    def get(self, booking_id: int) -> Optional[Booking]:
+        """Fetch a single booking by its ID"""
+        return self.db.query(Booking).filter(Booking.booking_id == booking_id).first()
+
+    def get_booking_for_invoice(self, booking_id: int):
+        return self.db.query(Booking).options(
+            joinedload(Booking.items).joinedload(BookingItem.service),
+            joinedload(Booking.items).joinedload(BookingItem.product),
+            joinedload(Booking.customer)
+        ).filter(Booking.booking_id == booking_id).first()

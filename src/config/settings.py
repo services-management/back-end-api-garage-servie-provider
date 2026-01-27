@@ -25,7 +25,12 @@ class Settings(BaseSettings):
     DB_NAME: str = "postgres"
     # DB driver: 'psycopg' (psycopg3) or 'psycopg2'
     DB_DRIVER: str = os.getenv("DB_DRIVER", "psycopg2")
+    # telegram bot token 
 
+    DOMAIN: str = os.getenv("DOMAIN", "http://localhost:8000")
+    TELEGRAM_BOT_TOKEN: Optional[str] = None
+    TELEGRAM_BOT_USERNAME: Optional[str] = os.getenv("TELEGRAM_BOT_USERNAME", "my_garage_service_bot")
+    ADMIN_CHAT_ID: Optional[str] = os.getenv("ADMIN_CHAT_ID", "")  # Replace with actual admin chat ID
     # JWT settings (optional - only needed for authentication endpoints)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     SECRET_KEY: Optional[str] = os.getenv("SECRET_KEY", "a_very_secret_key_change_in_production")
@@ -51,7 +56,7 @@ class Settings(BaseSettings):
 
         # Get values from instance or environment variables
         user = self.DB_USER or os.getenv("DB_USER") or "postgres"  # Default to postgres
-        password = self.DB_PASSWORD or os.getenv("DB_PASSWORD") or ""
+        password = self.DB_PASSWORD or os.getenv("DB_PASSWORD")
         host = self.DB_HOST or os.getenv("DB_HOST", "localhost")
         port = self.DB_PORT or int(os.getenv("DB_PORT", 5432))
         db = self.DB_NAME or os.getenv("DB_NAME", "fixing_service_db")

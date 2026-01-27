@@ -6,7 +6,7 @@ from sqlalchemy import BigInteger, Boolean, Column, Date, DateTime
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import ForeignKey, Integer, Numeric, String, Text, Time, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship,backref
 
 from src.config.database import Base
 
@@ -21,6 +21,10 @@ class BookingStatus(str, enum.Enum):
 class BookingSource(str, enum.Enum):
     WEB = "Web"
     PHONE = "Phone"
+
+class UserStatus(str, enum.Enum):
+    GUEST = "Guest"
+    ACTIVE = "Active"
 
 
 class User(Base):
@@ -48,8 +52,11 @@ class User(Base):
     created_at = Column(DateTime, server_default=func.now())
     last_login = Column(DateTime, onupdate=func.now())
 
+    # role field 
+    role = Column(SQLEnum(UserStatus, name="user_status"))
+
     # 6. Relationships
-    # This connects back to the Booking table we discussed earlier
+    # This connects back to the Booking table we discussed earlier 
     bookings = relationship("Booking", back_populates="customer")
 
 class Booking(Base):
@@ -106,8 +113,8 @@ class BookingItem(Base):
 
     item_id = Column(Integer, primary_key=True)
     booking_id = Column(Integer, ForeignKey("bookings.booking_id"), nullable=False)
-    product_id = Column(Integer, ForeignKey("products.product_id"), nullable=False)
-    service_id = Column(Integer, ForeignKey("services.service_id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.product_id"), nullable=True)
+    service_id = Column(Integer, ForeignKey("services.service_id"), nullable=True)
     # Capture the snapshot of data at the time of purchase
     quantity = Column(Numeric(10, 2), nullable=False)
     price_at_purchase = Column(Numeric(10, 2), nullable=False) 
@@ -115,3 +122,29 @@ class BookingItem(Base):
     booking = relationship("Booking", back_populates="items")
     product = relationship("Product")
     service = relationship("Service")
+
+
+class BookingInvoice(Base):
+    """Requirement: Get invoice from other source then upload after job completion"""
+    __tablename__ = "booking_invoices"
+
+    invoice_id = Column(Integer, primary_key=True)
+    booking_id = Column(Integer, ForeignKey("bookings.booking_id"), nullable=False)
+    # Stores the link to the invoice from the 'outside source'
+    external_invoice_url = Column(String(500), nullable=False) 
+    uploaded_at = Column(DateTime, server_default=func.now())
+    uploaded_by = Column(UUID(as_uuid=True), ForeignKey("admin.admin_id"))
+    booking = relationship("Booking", backref=backref("invoice", uselist=False))
+
+class MaintenanceAlert(Base):
+    """Requirement: Customer History and maintenance alerts"""
+    __tablename__ = "maintenance_alerts"
+
+    alert_id = Column(Integer, primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
+    booking_id = Column(Integer, ForeignKey("bookings.booking_id"))
+    alert_date = Column(Date, nullable=False)
+    message = Column(Text, nullable=False)
+    is_sent = Column(Boolean, default=False)
+    user = relationship("User", backref="alerts")
+    booking = relationship("Booking", backref="alerts")

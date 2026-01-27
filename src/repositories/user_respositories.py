@@ -1,15 +1,14 @@
 import logging
-import random
+
 from datetime import date, datetime, time
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy import func, or_
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
-from src.models.user import User, UserStatus
-from src.schemas.user import UserFilter
+from src.schemas.booking import User, UserStatus
+from src.models.user_model import UserFilter
 
 logger = logging.getLogger(__name__)
 
@@ -30,31 +29,28 @@ class UserRepository:
             # Check if phone already exists
             existing_user = self.get_user_by_phone(phone)
             if existing_user:
-                return existing_user  # Return existing user
+                return existing_user  # Return existinzg user
             
             # Create shadow account
             user = User(
                 phone=phone,
                 full_name=full_name,
-                status=UserStatus.GUEST,
+                role=UserStatus.GUEST,
                 is_active=False  # Shadow account
             )
             
             self.db.add(user)
-            self.db.commit()
-            self.db.refresh(user)
+            self.db.flush()
             
             logger.info(f"Shadow account created: {user.user_id} (phone: {phone})")
             return user
             
-        except IntegrityError as e:
-            self.db.rollback()
-            logger.error(f"Integrity error creating shadow account: {str(e)}")
-            raise ValueError(f"Database integrity error: {str(e)}")
         except Exception as e:
-            self.db.rollback()
-            logger.error(f"Error creating shadow account: {str(e)}")
-            raise
+            # This catches TypeError, IntegrityError, and everything else
+            self.db.rollback() 
+            logger.error(f"Failed to create shadow account: {str(e)}")
+            # If the error is 'status' is an invalid keyword, this will now tell you clearly
+            raise e
     
     def link_telegram_to_shadow(self, user_id: UUID, 
                                telegram_chat_id: int, 
@@ -89,88 +85,6 @@ class UserRepository:
     
     # ==================== FLOW 2: "Existing User" Flow ====================
     
-    def generate_fast_login_code(self, phone: str) -> Optional[str]:
-        """
-        Step 1: Generate 4-digit Fast Login code and send via Telegram
-        """
-        try:
-            user = self.get_user_by_phone(phone)
-            if not user:
-                return None  # User not found
-            
-            # Check if user has Telegram linked
-            if not user.telegram_chat_id:
-                raise ValueError("User doesn't have Telegram linked")
-            
-            # Check if can request new code
-            if not user.can_request_verification():
-                raise ValueError("Please wait before requesting new code")
-            
-            # Generate 4-digit code
-            code = str(random.randint(1000, 9999))
-            
-            # Store code
-            user.verification_code = code
-            user.verification_sent_at = datetime.utcnow()
-            user.verification_attempts = 0
-            user.updated_at = datetime.utcnow()
-            
-            self.db.commit()
-            
-            # Return code (in real app, send via Telegram bot)
-            logger.info(f"Fast login code generated for {phone}: {code}")
-            return code
-            
-        except Exception as e:
-            self.db.rollback()
-            logger.error(f"Error generating fast login code: {str(e)}")
-            raise
-    
-    def verify_fast_login_code(self, phone: str, code: str) -> Optional[User]:
-        """
-        Step 1: Verify 4-digit Fast Login code
-        """
-        try:
-            user = self.get_user_by_phone(phone)
-            if not user:
-                return None
-            
-            # Check if code exists and not expired
-            if not user.verification_code:
-                return None
-            
-            if user.is_verification_expired():
-                raise ValueError("Verification code expired")
-            
-            # Check attempts
-            if user.verification_attempts >= 3:
-                raise ValueError("Too many attempts")
-            
-            # Verify code
-            if user.verification_code != code:
-                user.verification_attempts += 1
-                self.db.commit()
-                return None
-            
-            # Code verified - mark user as active and update
-            user.status = UserStatus.ACTIVE
-            user.verified_at = datetime.utcnow()
-            user.last_login = datetime.utcnow()
-            user.verification_code = None  # Clear code after successful verification
-            user.verification_attempts = 0
-            user.updated_at = datetime.utcnow()
-            
-            self.db.commit()
-            self.db.refresh(user)
-            
-            logger.info(f"Fast login successful for {phone}")
-            return user
-            
-        except Exception as e:
-            self.db.rollback()
-            logger.error(f"Error verifying fast login code: {str(e)}")
-            raise
-    
     def upgrade_shadow_to_active(self, user_id: UUID) -> User:
         """
         Upgrade shadow account to active when they verify via Telegram
@@ -180,10 +94,10 @@ class UserRepository:
             if not user:
                 raise ValueError("User not found")
             
-            if user.status == UserStatus.ACTIVE:
+            if user.role == UserStatus.ACTIVE:
                 return user  # Already active
             
-            user.status = UserStatus.ACTIVE
+            user.role = UserStatus.ACTIVE
             user.verified_at = datetime.utcnow()
             user.is_active = True
             user.updated_at = datetime.utcnow()
@@ -206,7 +120,7 @@ class UserRepository:
         Step 2: Get user's car history from their bookings
         """
         try:
-            from src.models.booking import Booking
+            from src.models.booking_model import Booking
 
             # Get unique car make/model combinations from user's bookings
             cars = self.db.query(
@@ -322,8 +236,8 @@ class UserRepository:
             query = self.db.query(User)
             
             # Apply filters
-            if filters.status:
-                query = query.filter(User.status == filters.status)
+            if filters.role:
+                query = query.filter(User.role == filters.role)
             if filters.is_active is not None:
                 query = query.filter(User.is_active == filters.is_active)
             if filters.search:
@@ -360,24 +274,26 @@ class UserRepository:
         Check if user already has booking at same time
         """
         try:
-            from src.models.booking import Booking, BookingStatus
-            
+            from src.schemas.booking import Booking, BookingStatus
             conflicting_bookings = self.db.query(Booking).filter(
                 Booking.user_id == user_id,
                 Booking.appointment_date == appointment_date,
                 Booking.start_time == start_time,
                 Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED])
-            ).count()
+            ).first()
             
-            return conflicting_bookings > 0
+            return  conflicting_bookings is not None
         except Exception as e:
-            logger.error(f"Error checking booking conflict: {str(e)}")
-            return True  # Assume conflict if error
+            # It clears the 'poison' so the NEXT request works, 
+            # and tells you the REAL error.
+            self.db.rollback() 
+            logger.error(f"REAL ERROR FOUND: {str(e)}")
+            raise e
     
     def get_user_bookings_summary(self, user_id: UUID) -> Dict[str, Any]:
         """Get summary of user's bookings"""
         try:
-            from src.models.booking import Booking, BookingStatus
+            from src.schemas.booking import Booking, BookingStatus
             
             total_bookings = self.db.query(Booking).filter(
                 Booking.user_id == user_id
@@ -392,7 +308,7 @@ class UserRepository:
             return {
                 'total_bookings': total_bookings,
                 'upcoming_bookings': upcoming_bookings,
-                'user_status': self.get_user_by_id(user_id).status if self.get_user_by_id(user_id) else None
+                'user_status': self.get_user_by_id(user_id).role if self.get_user_by_id(user_id) else None
             }
         except Exception as e:
             logger.error(f"Error getting user bookings summary: {str(e)}")

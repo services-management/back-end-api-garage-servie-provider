@@ -3,7 +3,7 @@ import uuid
 from typing import Optional
 
 from pydantic import BaseModel, Field, validator
-
+from uuid import UUID
 
 # Schema for creating a new admin
 class AdminCreate(BaseModel):
@@ -60,3 +60,13 @@ class Token(BaseModel):
     '''Defines the structure of the authentication token returned to the client.'''
     access_token : str
     token_type : str = 'bearer'
+
+class RejectBookingRequest(BaseModel):
+    reason: str
+
+class AssignTeamRequest(BaseModel):
+    technical_team_id: UUID
+
+class InvoiceUpload(BaseModel):
+    """Schema for uploading an invoice."""
+    external_invoice_url: str = Field(..., description="URL to the external invoice document.")

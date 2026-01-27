@@ -1,8 +1,9 @@
 from uuid import UUID  # Correct type for IDs
-
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-
+from datetime import date
+from fastapi import Query   
 # Database dependency
 from src.config.database import \
     get_db  # Assuming this function yields the session
@@ -13,16 +14,19 @@ from src.dependency.auth import get_current_admin_user
 # --- Imports from your project ---
 # Your Schemas (Pydantic Models for input/output)
 from src.models.admin_model import (AdminCreate, AdminLogin, AdminOut,
-                                    AdminUpdate)
+                                    AdminUpdate, InvoiceUpload)
+from src.models.booking_model import BookingCreate, BookingHistoryResponse
 from src.models.technical_model import (  # Assuming you have a TechnicalOut
     TechnicalCreate, TechnicalOut)
+from src.models.booking_model import BookingStatus
 # Your Repositories (Used for dependency injection)
 from src.repositories.admin_repositories import AdminRepository
 from src.repositories.technical_repositorie import TechnicalRepository
+from src.repositories.booking_repositories import BookingRepository
 from src.schemas.auth import Token
+from src.models.admin_model import RejectBookingRequest, AssignTeamRequest
 # --- Security Dependencies ---
 from src.service.auth import create_access_token
-
 # --- Router Initialization ---
 router = APIRouter(
     prefix="/admin",
@@ -38,15 +42,19 @@ def get_admin_controller(db:Session = Depends(get_db)):
 
     tech_repo = TechnicalRepository(db) 
 
-
+    booking_repo = BookingRepository(db)
 
     # 2. Instantiate the Controller, injecting ALL required Repositories
 
     controller_instance = AdminController(
 
+        db=db,
+
         admin_repo=admin_repo,
 
-        tech_repo=tech_repo # ✅ Inject Technical Repository
+        tech_repo=tech_repo, # ✅ Inject Technical Repository
+
+        booking_repo=booking_repo  # ✅ Inject Booking Repository
 
     ) 
     return controller_instance
@@ -127,3 +135,86 @@ async def provision_technical_account(
     across both Admin and Technical tables.
     """
     return controller.create_technical_account(tech_in)
+
+@router.get("/bookings", response_model=List[BookingHistoryResponse], summary="Search and Filter Bookings")
+async def search_bookings(
+    query: Optional[str] = Query(None, description="Search by name, phone, or car model"),
+    status: Optional[BookingStatus] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    controller: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """
+    The main endpoint for the Admin UI Table. 
+    Allows admins to search for customers and filter by status.
+    """
+    return await controller.get_all_bookings_filtered(
+        query=query, 
+        status=status, 
+        limit=limit
+    )
+
+@router.get("/overview",summary="Get Daily Dashboard Overview")
+async def daily_overview(
+    target_date: date = Query(default=date.today()),
+    service: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """Get stats and booking list for a specific day"""
+    return await service.get_daily_overview(target_date)
+
+@router.post("/bookings/{booking_id}/accept",summary="Accept Booking")
+async def accept(
+    booking_id: int, 
+    service: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)):
+    """Confirm a pending booking"""
+    return await service.accept_booking(booking_id)
+
+@router.post("/bookings/{booking_id}/reject",summary="Reject Booking")
+async def reject(
+    booking_id: int, 
+    payload: RejectBookingRequest, 
+    service: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """Cancel a booking with a custom reason sent to the user"""
+    return await service.reject_booking(booking_id, payload.reason)
+
+
+@router.post("/bookings", response_model=BookingHistoryResponse, status_code=status.HTTP_201_CREATED, summary="Create a Booking for a Customer")
+async def create_booking_for_customer(
+    booking_data: BookingCreate,
+    service: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """
+    Allows an admin to create a booking on behalf of a customer.
+    The 'source' will be automatically set to 'PHONE'.
+    """
+    return await service.create_booking_for_customer(booking_data)
+
+
+
+@router.post("/bookings/{booking_id}/invoice", status_code=status.HTTP_201_CREATED, summary="Upload an Invoice for a Booking")
+async def upload_invoice(
+    booking_id: int,
+    invoice_data: InvoiceUpload,
+    service: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """
+    Uploads an invoice URL for a completed booking.
+    """
+    return await service.upload_invoice_for_booking(booking_id, invoice_data)
+
+
+@router.post("/bookings/{booking_id}/assign")
+async def assign(
+    booking_id: int, 
+    payload: AssignTeamRequest, 
+    service: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """Assign a specific technical team to a car"""
+    return await service.assign_team(booking_id, payload.technical_team_id)
