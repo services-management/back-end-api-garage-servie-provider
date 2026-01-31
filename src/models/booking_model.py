@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, model_validator, computed_field
 
 
 # Define enums locally (don't import from models)
@@ -24,121 +24,109 @@ class PaymentStatus(str, enum.Enum):
     PARTIAL = "partial"
     PAID = "paid"
     REFUNDED = "refunded"
-# --- Booking Service Schemas ---
-class ProductSelection(BaseModel):
-    product_id: int
-    quantity: float
-    price: Decimal
 
-class BookingServiceBase(BaseModel):
-    service_id: int
-
-class BookingServiceResponse(BookingServiceBase):
-    service_name: str
-    products: List[ProductSelection] = []
+class BookingItemCreate(BaseModel):
     
+    service_id: Optional[int] = None
+    product_id: Optional[int] = None
+    quantity: float
+    @model_validator(mode='after')
+    def validate_item_selection(self):
+        if not self.service_id and not self.product_id:
+            raise ValueError("Item must have either a service_id or a product_id")
+        return self
+    
+# --- Booking Service Schemas ---
+class BookingCreate(BaseModel):
+    # Customer Identity
+    contact_phone: str = Field(...,alias="phone", example="+1234567890")
+    full_name: Optional[str] = None
+    
+    # Car Requirements
+    car_make: str = Field(..., example="Toyota")
+    car_model: str = Field(..., example="Camry")
+    
+    items: List[BookingItemCreate] = Field(..., min_items=1)
+    # Logistics
+    appointment_date: date
+    start_time: time
+    service_location: str # Can be address or GPS string
+    note: Optional[str] = None
+    source: BookingSource = Field(example= BookingSource.WEB)
+    @validator('appointment_date')
+    def date_must_be_future(cls, v):
+        if v < date.today():
+            raise ValueError('Date must be today or in the future')
+        return v
+    
+class BookingItemResponse(BaseModel):
+    service_id: Optional[int] = None
+    service_name: Optional[str] = None
+    product_id: Optional[int] = None
+    product_name: Optional[str] = None
+    quantity: float
+    unit_price: Decimal = Field(alias="price_at_purchase")
+
+    @model_validator(mode='before')
+    @classmethod
+    def resolve_names(cls, data):
+        # Extract names from relationships if they exist
+        service_obj = getattr(data, 'service', None)
+        product_obj = getattr(data, 'product', None)
+
+        if service_obj:
+            setattr(data, 'service_name', service_obj.name)
+        if product_obj:
+            setattr(data, 'product_name', product_obj.name)
+            
+        return data
+    @computed_field
+    @property
+    def subtotal(self) -> Decimal:
+        # 2. Calculate Subtotal automatically whenever the object is serialized
+        return self.unit_price * Decimal(str(self.quantity))
+
+    class Config:
+        from_attributes = True
+        populate_by_name = True
+
+class InvoiceResponse(BaseModel):
+    external_invoice_url: str
+    uploaded_at: datetime
+
     class Config:
         from_attributes = True
 
-# --- Simplified Booking Schemas for Booking File Only ---
-class BookingUserSimple(BaseModel):
-    """Simple user schema for booking context only"""
-    phone: str
-    full_name: Optional[str] = None
-
-class BookingCreate(BaseModel):
-    # Customer Info (uses simplified schema)
-    phone: str = Field(..., min_length=10, max_length=20)
-    full_name: Optional[str] = None
-    
-    # Car Info
-    car_make: str = Field(..., max_length=50)
-    car_model: str = Field(..., max_length=50)
-    
-    # Selection
-    service_ids: List[int] = Field(..., min_items=1)
-    appointment_date: date
-    start_time: time
-    
-    # Meta
-    service_location: str
-    source: BookingSource = BookingSource.WEB
-    note: Optional[str] = None
-    
-    @validator('phone')
-    def validate_phone(cls, v):
-        digits = ''.join(filter(str.isdigit, v))
-        if len(digits) < 10:
-            raise ValueError('Phone number must have at least 10 digits')
-        return v
-    @validator('appointment_date')
-    def validate_appointment_date(cls, v):
-        if v < date.today():
-            raise ValueError('Appointment date cannot be in the past')
-        return v
-
-class BookingResponse(BaseModel):
+class BookingHistoryResponse(BaseModel):
     booking_id: int
-    user_id: UUID
-    contact_phone: str
     car_make: str
     car_model: str
     appointment_date: date
     start_time: time
+    status: str # e.g., "Pending", "Completed"
+    service_location: str
+    total_price: Optional[Decimal]
     status: BookingStatus
-    created_at: datetime
-    services: List[BookingServiceResponse] = []
-    
+    items: List[BookingItemResponse] 
+    # This is where our 'backref' relationship pays off!
+    # If no invoice exists yet, this will simply be null
+    invoice: Optional[InvoiceResponse] = None
+
     class Config:
         from_attributes = True
 
-# --- Additional Booking Schemas ---
-class BookingUpdate(BaseModel):
-    """Schema for updating booking"""
-    status: Optional[BookingStatus] = None
-    car_make: Optional[str] = None
-    car_model: Optional[str] = None
-    service_location: Optional[str] = None
-    contact_phone: Optional[str] = None
-    appointment_date: Optional[date] = None
-    start_time: Optional[time] = None
-    note: Optional[str] = None
-    total_price: Optional[Decimal] = None
-    payment_status: Optional[PaymentStatus] = None
-    amount_paid: Optional[Decimal] = None
-    technical_team_id: Optional[UUID] = None
-    
-    @validator('appointment_date')
-    def validate_appointment_date(cls, v):
-        if v and v < date.today():
-            raise ValueError('Appointment date cannot be in the past')
-        return v
-    
-class BookingPaymentUpdate(BaseModel):
-    amount: Decimal = Field(..., gt=0)
-    payment_method: str
-    transaction_id: Optional[str] = None
-    notes: Optional[str] = None
+class LoginRequest(BaseModel):
+    phone: str
 
-# --- Team Assignment ---
-class BookingTeamAssign(BaseModel):
-    technical_team_id: UUID
-    assigned_notes: Optional[str] = None
+class VerifyOTP(BaseModel):
+    phone: str
+    otp_code: str = Field(..., min_length=6, max_length=6)
+
+class AdminBookingCreate(BookingCreate):
+    assigned_garage_id: UUID
+    source: BookingSource = Field(example= BookingSource.PHONE)
+    internal_note: Optional[str] = Field(None, example="Customer is in a hurry.")
     
-class BookingFilter(BaseModel):
-    """Schema for filtering bookings"""
-    user_id: Optional[UUID] = None
-    status: Optional[BookingStatus] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
-    car_make: Optional[str] = None
-    source: Optional[BookingSource] = None
-    page: int = Field(1, ge=1)
-    per_page: int = Field(20, ge=1, le=100)
-    
-    @validator('end_date')
-    def validate_date_range(cls, v, values):
-        if 'start_date' in values and v and values['start_date']:
-            if v < values['start_date']:
-                raise ValueError('End date must be after start date')
-        return v
+class BookingSuccessResponse(BaseModel):
+    booking: BookingHistoryResponse  # Your existing booking data
+    telegram_link: str | None             # The Magic Link for the shadow user

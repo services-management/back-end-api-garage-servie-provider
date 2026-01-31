@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from src.config.database import get_db
 from src.controller.service_controller import ServiceController
 from src.dependency.auth import (get_current_admin_user,
-                                 get_current_user_admin_or_technical)
+                                 get_optional_user)
 from src.models.service_model import (ServiceCreate, ServiceResponse,
                                       ServiceUpdate)
 from src.service.s3_service import S3Service
@@ -45,6 +45,7 @@ def create_service(payload: ServiceCreate, db: Session = Depends(get_db)):
 @router.get(
     "/{service_id}",
     response_model=ServiceResponse,
+    dependencies=[Depends(get_optional_user)],
 )
 def get_service(service_id: int, db: Session = Depends(get_db)):
     """Get a service by ID"""
@@ -72,7 +73,7 @@ def list_services(
 @router.get(
     "/available/",
     response_model=List[ServiceResponse],
-    dependencies=[Depends(get_current_user_admin_or_technical)],
+    dependencies=[Depends(get_optional_user)],
 )
 def list_available_services(
     skip: int = Query(0, ge=0),

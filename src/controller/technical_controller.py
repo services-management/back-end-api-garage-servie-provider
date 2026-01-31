@@ -2,20 +2,24 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
-
+from datetime import date
 from src.models.technical_model import (  # Added TechnicalUpdate
     TechnicalLogin, TechnicalStatusUpdate, TechnicalUpdate)
 from src.repositories.technical_repositorie import TechnicalRepository
 from src.schemas.techincal import TechnicalModel  # Added TechnicalStatusUpdate
 from src.utils.hash_password import hash_password  # Added for updates
 from src.utils.verify_password import verify_password
-
+from sqlalchemy.orm import Session
+from src.repositories.booking_repositories import BookingRepository
+from src.config.telegram_client import telegram_client
 
 class TechnicalController:
     """Handles the business logic for technical user authentication and management."""
 
-    def __init__(self, tech_repo: TechnicalRepository):
+    def __init__(self, db:Session,tech_repo: TechnicalRepository, booking_repo: BookingRepository):
+        self.db = db
         self.tech_repo = tech_repo
+        self.booking_repo = booking_repo
         
 
     def authenticate_technical(self, tech_in: TechnicalLogin) -> Optional[TechnicalModel]:
@@ -69,3 +73,35 @@ class TechnicalController:
         # Ensure the user exists before attempting to delete
         self.get_technical_by_id(tech_id) 
         self.tech_repo.remove(tech_id)
+
+    # ----- booking related for technical users -----
+    async def get_my_worklist(self, team_id: UUID, target_date: date):
+        """Fetches assigned jobs for a specific team on a specific date."""
+        # Ensure you use the repo function we built earlier: get_technical_jobs
+        return self.booking_repo.get_technical_jobs(team_id, target_date)
+
+    async def update_job_status(self, booking_id: int, status: str):
+        """
+        1. Updates status in DB
+        2. Sends Telegram alert based on progress
+        """
+        # Use self.booking_repo consistently
+        booking = self.booking_repo.update_booking_status(booking_id, status)
+        
+        if not booking:
+            return None
+
+        # 2. Telegram Trigger for Status Updates
+        if booking.customer and booking.customer.telegram_chat_id:
+            # Define friendly messages based on the status
+            if status == "IN_PROGRESS":
+                status_text = "is now being worked on 🔧"
+            elif status == "COMPLETED":
+                status_text = "is READY for pickup! ✅"
+            else:
+                status_text = f"status has been updated to: {status}"
+
+            msg = f"🚗 *Service Update:* Your {booking.car_make} {status_text}"
+            await telegram_client.send_message(booking.customer.telegram_chat_id, msg)
+            
+        return booking

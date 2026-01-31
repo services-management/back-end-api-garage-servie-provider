@@ -1,11 +1,11 @@
 import re
 import uuid
-from typing import Literal, Optional
+from typing import Literal, Optional, List
 
 from pydantic import BaseModel, Field, validator
-
+from datetime import datetime
 # --- Status Enum/Literal (Important for validation) ---
-# Assuming these are the allowed statuses for a Technical user
+# Assuming these are the allowed statuses for a Technical use
 TechnicalStatus = Literal['free', 'busy', 'off_duty']
 
 # --- Input Schemas ---
@@ -67,7 +67,40 @@ class TechnicalOut(BaseModel):
     phone_number: str
     role: str
     status: TechnicalStatus # Use the Literal type for better validation
-    T_T_ID: Optional[int] = None # Assuming Trouble Ticket ID is an int/UUID
+    team_id: Optional[uuid.UUID] = None
+
+    class Config:
+        from_attributes = True
+
+# --- Team Schemas ---
+
+class TechnicalTeamCreate(BaseModel):
+    """Schema for creating a new Technical Team."""
+    team_name: str = Field(..., min_length=2, max_length=100, example="Alpha Team")
+    description: Optional[str] = Field(None, max_length=255, example="Specialized in engine repair")
+    # team_lead_id is optional during creation if the team is empty
+    team_lead_id: Optional[uuid.UUID] = None
+
+    class Config:
+        from_attributes = True
+
+class TechnicalTeamUpdate(BaseModel):
+    """Schema for updating team details (all fields optional)."""
+    team_name: Optional[str] = Field(None, min_length=2, max_length=100)
+    description: Optional[str] = None
+    team_lead_id: Optional[uuid.UUID] = None
+    is_active: Optional[bool] = None
+
+class TechnicalTeamOut(BaseModel):
+    """Schema for sending Team data to the frontend."""
+    team_id: uuid.UUID
+    team_name: str
+    description: Optional[str]
+    team_lead_id: Optional[uuid.UUID]
+    is_active: bool
+    created_at: datetime
+    # We include member names in the output for the UI
+    members: List[TechnicalOut] = []
 
     class Config:
         from_attributes = True

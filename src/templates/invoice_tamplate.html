@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        /* Define A4 Page Size */
+        @page { size: A4; margin: 2cm; }
+        
+        body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 12px; color: #333; line-height: 1.4; }
+        
+        .invoice-header { display: flex; justify-content: space-between; border-bottom: 2px solid #2c3e50; padding-bottom: 20px; }
+        .company-logo { font-size: 24px; font-weight: bold; color: #2c3e50; }
+        
+        .details-container { margin-top: 30px; display: table; width: 100%; }
+        .details-column { display: table-cell; width: 50%; }
+        
+        .invoice-table { width: 100%; border-collapse: collapse; margin-top: 30px; }
+        .invoice-table th { background-color: #2c3e50; color: white; padding: 10px; text-align: left; }
+        .invoice-table td { padding: 10px; border-bottom: 1px solid #eee; }
+        
+        .totals-area { margin-top: 30px; text-align: right; }
+        .total-row { font-size: 16px; font-weight: bold; color: #e74c3c; }
+        
+        .footer { margin-top: 50px; text-align: center; color: #95a5a6; font-size: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="invoice-header">
+        <div class="company-logo">MODERN GARAGE</div>
+        <div style="text-align: right;">
+            <strong>INVOICE</strong><br>
+            ID: #{{ booking.booking_id }}<br>
+            Date: {{ booking.appointment_date }}
+        </div>
+    </div>
+
+    <div class="details-container">
+        <div class="details-column">
+            <strong>BILL TO:</strong><br>
+            {{ booking.user.full_name }}<br>
+            Phone: {{ booking.contact_phone }}
+        </div>
+        <div class="details-column" style="text-align: right;">
+            <strong>VEHICLE DETAILS:</strong><br>
+            {{ booking.car_make }} {{ booking.car_model }}<br>
+            Plate: {{ booking.car_plate }}
+        </div>
+    </div>
+
+    <table class="invoice-table">
+        <thead>
+            <tr>
+                <th>Service Description</th>
+                <th>Price</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in booking.items %}
+            <tr>
+                <td>
+                    {# This checks if it's a service or a product and gets the name #}
+                    {% if item.service %}
+                        {{ item.service.name }}
+                    {% elif item.product %}
+                        {{ item.product.name }}
+                    {% else %}
+                        General Service
+                    {% endif %}
+                </td>
+                <td>${{ "{:,.2f}".format(item.price_at_purchase * item.quantity) }}</td>
+
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="totals-area">
+        <p>Subtotal: ${{ "{:,.2f}".format(booking.total_price) }}</p>
+        <p class="total-row">Total Paid: ${{ "{:,.2f}".format(booking.total_price) }}</p>
+    </div>
+
+    <div class="footer">
+        <p>Thank you for trusting us with your vehicle!</p>
+        <p>Modern Garage - 123 Car St. - Phone: (555) 012-3456</p>
+    </div>
+
+</body>
+</html>

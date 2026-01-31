@@ -81,7 +81,7 @@ class TechnicalTeam(Base):
     members = relationship(
         "TechnicalModel",
         back_populates="team",
-        foreign_keys=[TechnicalModel.team_id], 
+        foreign_keys="TechnicalModel.team_id", 
     )
 
     # If you have a Booking model with a FK to technical_team.team_id:

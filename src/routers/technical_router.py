@@ -13,22 +13,27 @@ from src.dependency.auth import \
 from src.models.technical_model import (TechnicalLogin, TechnicalOut,
                                         TechnicalStatusUpdate, TechnicalUpdate)
 from src.repositories.technical_repositorie import TechnicalRepository
+from src.repositories.booking_repositories import BookingRepository
 from src.schemas.auth import Token  # Token model is reused
 # Security/Auth Utilities
 from src.service.auth import create_access_token  # JWT creation utility
-
+from fastapi import Query
+from datetime import date
+from uuid import UUID
 # --- Router Initialization ---
 router = APIRouter(
     prefix="/technical",
     tags=["Technical Staff"],
 )
 
+
 # --- Dependency Injection for Controller ---
 # ASSUMPTION: TechnicalController primarily depends on TechnicalRepository
 def get_technical_controller(db: Session = Depends(get_db)) -> TechnicalController:
     tech_repo = TechnicalRepository(db)
+    booking_repo = BookingRepository(db) # Instantiate BookingRepository
     # NOTE: If your controller needs other repos (e.g., TicketRepo), inject them here.
-    return TechnicalController(tech_repo=tech_repo)
+    return TechnicalController(db=db, tech_repo=tech_repo, booking_repo=booking_repo) # Pass booking_repo
 
 # --- ENDPOINTS ---
 
@@ -91,3 +96,23 @@ def update_technical_status(
     """Allows a technical user to change their operational status (e.g., Free, Busy, off_duty)."""
     # The controller logic will validate the status change and update the DB
     return controller.update_technical_status(current_user.technical_id, status_in.status)
+
+@router.get("/worklist", summary="Technician Daily Jobs")
+async def read_worklist(
+    team_id: UUID, 
+    target_date: date = Query(default=date.today()),
+    service: TechnicalController = Depends(get_technical_controller),
+    current_user = Depends(get_current_technical_user) # Security check
+):
+    """Returns all jobs for the mechanic's specific team."""
+    return await service.get_my_worklist(team_id, target_date)
+
+@router.patch("/jobs/{booking_id}/status", summary="Update Progress")
+async def change_status(
+    booking_id: int,
+    status: str, # "IN_PROGRESS" or "COMPLETED"
+    service: TechnicalController = Depends(get_technical_controller),
+    current_user = Depends(get_current_technical_user)
+):
+    """Updates the car status and pings the customer automatically."""
+    return await service.update_job_status(booking_id, status)

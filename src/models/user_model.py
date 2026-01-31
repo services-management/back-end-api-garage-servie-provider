@@ -2,10 +2,12 @@ import re
 from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
-
+import enum 
 from pydantic import BaseModel, Field, validator
 
-
+class UserStatus(str, enum.Enum):
+    GUEST = "Guest"
+    ACTIVE = "Active"
 # User Schemas
 class UserBase(BaseModel):
     phone: str = Field(..., min_length=10, max_length=20)
@@ -16,7 +18,7 @@ class UserBase(BaseModel):
     @validator('phone')
     def validate_phone(cls, v):
         digits = re.sub(r'\D', '', v)
-        if len(digits) < 10:
+        if len(digits) < 9:
             raise ValueError('Phone number must have at least 10 digits')
         return v
 
@@ -102,7 +104,6 @@ class UserResponse(UserBase):
     user_id: UUID
     is_active: bool
     created_at: datetime
-    updated_at: datetime
     last_login: Optional[datetime]
     
     class Config:
@@ -182,7 +183,7 @@ class UserBulkUpdate(BaseModel):
 class UserExportRequest(BaseModel):
     """Schema for user export request"""
     filters: Optional[UserFilter] = None
-    format: str = Field("csv", regex="^(csv|json|excel)$")
+    format: str = Field("csv", pattern="^(csv|json|excel)$")
 
 # Validation Schemas
 class PhoneValidation(BaseModel):
