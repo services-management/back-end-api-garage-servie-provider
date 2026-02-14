@@ -4,4 +4,5 @@ from .inventory_controller import InventoryController
 from .product_controller import ProductController
 from .technical_controller import TechnicalController
 from .booking_controller import BookingService
-__all__ = ["AdminController","TechnicalController","CategoryController","InventoryController","ProductController","BookingService"]
+from .vehicle_controller import Vehiclecontroller
+__all__ = ["AdminController","TechnicalController","CategoryController","InventoryController","ProductController","BookingService","Vehiclecontroller"]
