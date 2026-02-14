@@ -130,6 +130,30 @@ def update_product_image(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating image: {str(e)}")
 
+@router.get("/all", response_model=List[ProductResponse])
+def list_products_all(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_admin_user)
+):
+    svc = ProductController(db)
+    if current_user:
+        print(f"User {current_user.id} ({current_user.role}) is viewing products.")
+    else:
+        print("A Guest is viewing products.")
+    return svc.list_product(skip=skip, limit=limit)
+
+@router.get("/",response_model=List[ProductResponse])
+def list_products_active(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_optional_user)
+):
+    svc = ProductController(db) 
+    return svc.list_product_active(skip=skip, limit=limit)
+
 @router.get("/{product_id}", 
             response_model= ProductResponse)
 def get_product(
@@ -142,19 +166,6 @@ def get_product(
         raise HTTPException(status_code=404, detail="Product not found")
     return product
 
-@router.get("/", response_model=List[ProductResponse])
-def list_products(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    db: Session = Depends(get_db),
-    current_user = Depends(get_optional_user)
-):
-    svc = ProductController(db)
-    if current_user:
-        print(f"User {current_user.id} ({current_user.role}) is viewing products.")
-    else:
-        print("A Guest is viewing products.")
-    return svc.list_product(skip=skip, limit=limit)
 
 @router.get("/by-category/{category_id}", 
             response_model=List[ProductResponse],

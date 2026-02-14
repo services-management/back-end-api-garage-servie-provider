@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 from src.repositories.base_repositories import BaseRepository
 from src.repositories.category_repositories import CategoryRepository
 from src.repositories.inventory_repositories import InventoryRepository
-from src.schemas.product import Product  # <-- ORM model, not schema
+from src.schemas.product import Product,ProductStatus  # <-- ORM model, not schema
 
 
 class ProductRepository(BaseRepository[Product]):
@@ -45,6 +45,10 @@ class ProductRepository(BaseRepository[Product]):
     # --- List products with optional pagination ---
     def list(self, skip: int = 0, limit: int = 100) -> List[Product]:
         stmt = select(Product).offset(skip).limit(limit)
+        return list(self.db.execute(stmt).scalars().all())
+    
+    def list_active(self, skip: int = 0, limit: int = 100) -> List[Product]:
+        stmt = select(Product).where(Product.status == ProductStatus.ACTIVE).offset(skip).limit(limit)
         return list(self.db.execute(stmt).scalars().all())
 
     # Optional: list with eager loading (useful for API responses)
@@ -172,9 +176,13 @@ class ProductRepository(BaseRepository[Product]):
         # Use BaseRepository.update(id, data) which commits & refreshes
         return super().update(product_id, update_data)
 
-    # --- Delete product + inventory ---
+    # --- soft delete product ---
     def delete(self, product_id: int) -> bool:
         # Delete inventory first (inventory PK == product_id)
-        self.inventory_repo.delete_inventory(product_id)
-        # Then delete product via BaseRepository
-        return super().delete(product_id)
+        stmt =  self.db.get(Product, product_id)
+        if not stmt:
+            return False
+        
+        update_product = self.update(product_id=product_id,status=ProductStatus.INACTIVE)
+
+        return update_product is not None
