@@ -4,7 +4,6 @@
 from datetime import date
 from decimal import Decimal
 from typing import Any, List, Optional
-from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 

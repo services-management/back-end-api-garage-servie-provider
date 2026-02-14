@@ -1,12 +1,7 @@
 
 from sqlalchemy.orm import Session
-from typing import List, Optional
 
-from src.repositories.base_repositories import BaseRepository
-from src.repositories.category_repositories import CategoryRepository
-from src.repositories.inventory_repositories import InventoryRepository
-from src.schemas.product import Product, ProductVehicleCompatibility 
-from src.schemas.vehicle import Vehicle
+from src.schemas.product import ProductVehicleCompatibility 
 
 
 class ProductVehicleRepository:

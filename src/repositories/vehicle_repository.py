@@ -1,4 +1,4 @@
-from typing import Optional, List, Any
+from typing import Optional, List
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, joinedload
 from src.schemas.vehicle import Vehicle,Make,Model  # Corrected imports
@@ -19,7 +19,7 @@ class VehicleRepository:
 
     def get_all_makes(self) -> List[Make]:
         """Standard 'Step 1' for the Oil Finder: Get all brands."""
-        stmt = select(Make).where(Make.is_active == True).order_by(Make.name)
+        stmt = select(Make).where(Make.is_active).order_by(Make.name)
         return list(self.db.execute(stmt).scalars().all())
     
     def get_make_by_id(self, make_id: int) -> Optional[Make]:
@@ -46,7 +46,7 @@ class VehicleRepository:
         """Standard 'Step 2': Get models for the chosen brand."""
         stmt = (
             select(Model)
-            .where(Model.make_id == make_id, Model.is_active == True)
+            .where(Model.make_id == make_id, Model.is_active)
             .order_by(Model.name)
         )
         return list(self.db.execute(stmt).scalars().all())
@@ -55,7 +55,7 @@ class VehicleRepository:
         """Standard 'Step 3': Get years for the chosen model."""
         stmt = (
             select(Vehicle.year)
-            .where(Vehicle.model_id == model_id, Vehicle.is_active == True)
+            .where(Vehicle.model_id == model_id, Vehicle.is_active)
             .distinct()
             .order_by(Vehicle.year.desc())
         )
@@ -70,7 +70,7 @@ class VehicleRepository:
             .where(
                 Vehicle.model_id == model_id, 
                 Vehicle.year == year, 
-                Vehicle.is_active == True
+                Vehicle.is_active
             )
         )
         return list(self.db.execute(stmt).scalars().all())

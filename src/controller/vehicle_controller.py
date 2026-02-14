@@ -1,8 +1,8 @@
-from typing import List, Optional
+
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from src.repositories.vehicle_repository import VehicleRepository
-from src.models.vehicle_model import VehicleCreate, VehicleUpdate,MakeBase,ModelBase,Modelcreate,Makecreate
+from src.models.vehicle_model import VehicleCreate, VehicleUpdate,Modelcreate,Makecreate
 
 class  Vehiclecontroller:
     def __init__(self, db: Session):

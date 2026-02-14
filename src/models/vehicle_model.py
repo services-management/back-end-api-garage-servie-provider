@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
+from typing import Optional
 from src.core.enums import VehicleType, TransmissionType,FuelType,DriveType
 # --- Base Schemas (Common Fields) ---
 class MakeBase(BaseModel):

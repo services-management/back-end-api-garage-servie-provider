@@ -1,10 +1,7 @@
-import enum
-from sqlalchemy import Column, ForeignKey, Integer, String, Table, UniqueConstraint, Boolean, Text
+from sqlalchemy import Column, ForeignKey, Integer, String, Boolean
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from src.config.database import Base
-from pydantic import BaseModel, Field
-from typing import Optional
 from src.core.enums import TransmissionType,FuelType,DriveType,VehicleType
 
 class Make(Base):
