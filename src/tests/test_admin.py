@@ -99,7 +99,7 @@ def test_update_admin_success(authenticated_admin_client):
         "username": "updated_test_admin",
         "email_phone": "updated@example.com",
     }
-    response = authenticated_admin_client.put(f"/admin/me", json=update_data)
+    response = authenticated_admin_client.put("/admin/me", json=update_data)
     assert response.status_code == 200
     data = response.json()
     assert data["username"] == "updated_test_admin"
