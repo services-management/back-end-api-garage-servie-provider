@@ -1,4 +1,4 @@
-from uuid import UUID  # Correct type for IDs
+
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -106,9 +106,8 @@ async def create_new_admin(
     return controller.create_admin(admin_in)
 
 
-@router.put("/{admin_id}", response_model=AdminOut, summary="Update Admin Details")
+@router.put("/me", response_model=AdminOut, summary="Update current Admin Details")
 async def update_existing_admin(
-    admin_id: UUID, # Use UUID type for path parameter
     admin_in: AdminUpdate,
     controller: AdminController = Depends(get_admin_controller),
     # Authorization: Ensure only the admin or a super-admin can update
@@ -118,7 +117,7 @@ async def update_existing_admin(
     
     # You might want to add a check here: if current_admin.admin_id != admin_id AND current_admin.role != "super_admin": raise 403
     
-    return controller.update_admin(admin_id, admin_in)
+    return controller.update_admin(current_admin.admin_id, admin_in)
 
 
 ## 3. Technical Account Provisioning Endpoint (Admin Function)
