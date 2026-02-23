@@ -5,4 +5,5 @@ from .inventory_repositories import InventoryRepository
 from .product_repositories import ProductRepository
 from .technical_repositorie import TechnicalRepository
 from .booking_repositories import BookingRepository
-__all__ = ["AdminRepository", "TechnicalRepository","CategoryRepository","InventoryRepository","ProductRepository","BookingRepository"]
+from .vehicle_repository import VehicleRepository
+__all__ = ["AdminRepository", "TechnicalRepository","CategoryRepository","InventoryRepository","ProductRepository","BookingRepository","VehicleRepository"]

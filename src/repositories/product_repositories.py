@@ -4,15 +4,15 @@
 from datetime import date
 from decimal import Decimal
 from typing import Any, List, Optional
-
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from src.repositories.base_repositories import BaseRepository
 from src.repositories.category_repositories import CategoryRepository
 from src.repositories.inventory_repositories import InventoryRepository
-from src.schemas.product import Product  # <-- ORM model, not schema
-
+from src.schemas.product import Product, ProductVehicleCompatibility
+from src.core.enums import VehicleType, FuelType, DriveType, TransmissionType # Import ORM models and Enums from src/schemas/vehicle.py
+from src.schemas.vehicle import Vehicle, Make, Model
 
 class ProductRepository(BaseRepository[Product]):
     def __init__(self, db: Session):
@@ -96,9 +96,9 @@ class ProductRepository(BaseRepository[Product]):
 
        # 1. Start a single atomic transaction block
         try:
-            # We don't necessarily need 'with' if we manage the session externally, 
+            # We don't necessarily need 'with' if we manage the session externally,
             # but for a repo 'create', we want to ensure both happen or none.
-            
+
             product = Product(
                 name=name,
                 selling_price=to_dec(selling_price),
@@ -110,9 +110,9 @@ class ProductRepository(BaseRepository[Product]):
             )
 
             self.db.add(product)
-            # FLUSH is key: It sends the INSERT to the DB and gets the product_id 
+            # FLUSH is key: It sends the INSERT to the DB and gets the product_id
             # WITHOUT ending the transaction yet.
-            self.db.flush() 
+            self.db.flush()
 
             # 2. Use the ID from the flushed product to create Inventory
             self.inventory_repo.create_inventory(
@@ -178,3 +178,59 @@ class ProductRepository(BaseRepository[Product]):
         self.inventory_repo.delete_inventory(product_id)
         # Then delete product via BaseRepository
         return super().delete(product_id)
+
+    def filter_by_vehicle(
+    self,
+    make_name: str,
+    model_name: str,
+    year: int,
+    vehicle_type: Optional[VehicleType] = None,
+    fuel_type: Optional[FuelType] = None,
+    drive_type: Optional[DriveType] = None,
+    transmission: Optional[TransmissionType] = None,
+    skip: int = 0,
+    limit: int = 100
+) -> List[Product]:
+        """
+        Filters products based on compatible vehicle information.
+        Returns a list of Product objects with related category, inventory, and vehicle info eagerly loaded.
+        """
+
+        stmt = (
+            select(Product)
+            .join(Product.vehicle_links)  # Product → ProductVehicleCompatibility
+            .join(ProductVehicleCompatibility.vehicle)  # Compatibility → Vehicle
+            .join(Vehicle.model)           # Vehicle → Model
+            .join(Model.make)              # Model → Make
+            .options(
+                joinedload(Product.category),
+                joinedload(Product.inventory),
+                joinedload(Product.vehicle_links)
+                    .joinedload(ProductVehicleCompatibility.vehicle)
+                    .joinedload(Vehicle.model)
+                    .joinedload(Model.make)
+            )
+            .where(
+                Make.name.ilike(f"%{make_name}%"),
+                Model.name.ilike(f"%{model_name}%"),
+                Vehicle.year == year
+            )
+        )
+
+        if vehicle_type:
+            stmt = stmt.where(Vehicle.vehicle_type == vehicle_type)
+        if fuel_type:
+            stmt = stmt.where(Vehicle.fuel_type == fuel_type)
+
+        if drive_type:
+            stmt = stmt.where(Vehicle.drive_type == drive_type)
+
+        if transmission:
+            stmt = stmt.where(Vehicle.transmission == transmission)
+
+        # Remove duplicates if a product is linked to multiple vehicles
+        stmt = stmt.distinct().offset(skip).limit(limit)
+
+        # Fetch and return ORM Product objects
+        result = self.db.execute(stmt)
+        return result.scalars().unique().all()
