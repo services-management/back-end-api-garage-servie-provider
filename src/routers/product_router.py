@@ -1,15 +1,14 @@
-from typing import List, Optional # Ensure List and Optional are imported here
+from typing import List # Ensure List and Optional are imported here
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from src.config.database import get_db
 from src.controller.product_controller import ProductController
 from src.dependency.auth import get_current_admin_user, get_optional_user
 from src.models.product_model import (  # Adjusted import path
-    ProductCreate, ProductResponse, ProductUpdate,ProductOut)
-from src.core.enums import VehicleType, FuelType, DriveType, TransmissionType # Import Vehicle enums
+    ProductCreate, ProductResponse, ProductUpdate)
 from src.repositories.product_vehicle_repository import ProductVehicleRepository
 from src.service.s3_service import S3Service
 # from src.models.vehicle_model import VehicleFilter
@@ -133,7 +132,6 @@ def update_product_image(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating image: {str(e)}")
 
-<<<<<<< HEAD
 @router.get("/all", response_model=List[ProductResponse])
 def list_products_all(
     skip: int = Query(0, ge=0),
@@ -159,43 +157,6 @@ def list_products_active(
     return svc.list_product_active(skip=skip, limit=limit)
 
 @router.get("/{product_id}", 
-=======
-@router.get("/filter-by-vehicle",response_model=List[ProductOut])
-def get_product_by_vehicle(
-    make: str = Query(..., min_length=1, example="Toyota"),
-    model: str = Query(..., min_length=1, example="Camry"),
-    year: int = Query(..., ge=1900, le=2100, example=2022),
-    vehicle_type: Optional[VehicleType] = Query(None),
-    fuel_type: Optional[FuelType] = Query(None),
-    drive_type: Optional[DriveType] = Query(None),
-    transmission: Optional[TransmissionType] = Query(None),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    db: Session = Depends(get_db)
-):
-    """Search for products that are compatible with a specific vehicle.
-    Example: /products/filter-by-vehicle?make=Toyota&model=Camry&year=2022"""
-    try:
-        controller = ProductController(db)
-        products = controller.filter_products_by_vehicle(
-            make_name=make,
-            model_name=model,
-            year=year,
-            vehicle_type=vehicle_type,
-            fuel_type=fuel_type,
-            drive_type=drive_type,
-            transmission=transmission,
-            skip=skip,
-            limit=limit
-        )
-        return products
-    except ValueError as ve:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
-
-@router.get("/{product_id}",
->>>>>>> 4fa6801553210bf9d9631914a581b49fcb4e1643
             response_model= ProductResponse)
 def get_product(
     product_id: int,

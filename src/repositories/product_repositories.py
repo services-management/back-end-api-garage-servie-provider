@@ -10,14 +10,8 @@ from sqlalchemy.orm import Session, joinedload
 from src.repositories.base_repositories import BaseRepository
 from src.repositories.category_repositories import CategoryRepository
 from src.repositories.inventory_repositories import InventoryRepository
-<<<<<<< HEAD
-from src.schemas.product import Product,ProductStatus  # <-- ORM model, not schema
+from src.schemas.product import Product,ProductStatus  
 
-=======
-from src.schemas.product import Product, ProductVehicleCompatibility
-from src.core.enums import VehicleType, FuelType, DriveType, TransmissionType # Import ORM models and Enums from src/schemas/vehicle.py
-from src.schemas.vehicle import Vehicle, Make, Model
->>>>>>> 4fa6801553210bf9d9631914a581b49fcb4e1643
 
 class ProductRepository(BaseRepository[Product]):
     def __init__(self, db: Session):
@@ -184,7 +178,6 @@ class ProductRepository(BaseRepository[Product]):
     # --- soft delete product ---
     def delete(self, product_id: int) -> bool:
         # Delete inventory first (inventory PK == product_id)
-<<<<<<< HEAD
         stmt =  self.db.get(Product, product_id)
         if not stmt:
             return False
@@ -192,64 +185,3 @@ class ProductRepository(BaseRepository[Product]):
         update_product = self.update(product_id=product_id,status=ProductStatus.INACTIVE)
 
         return update_product is not None
-=======
-        self.inventory_repo.delete_inventory(product_id)
-        # Then delete product via BaseRepository
-        return super().delete(product_id)
-
-    def filter_by_vehicle(
-    self,
-    make_name: str,
-    model_name: str,
-    year: int,
-    vehicle_type: Optional[VehicleType] = None,
-    fuel_type: Optional[FuelType] = None,
-    drive_type: Optional[DriveType] = None,
-    transmission: Optional[TransmissionType] = None,
-    skip: int = 0,
-    limit: int = 100
-) -> List[Product]:
-        """
-        Filters products based on compatible vehicle information.
-        Returns a list of Product objects with related category, inventory, and vehicle info eagerly loaded.
-        """
-
-        stmt = (
-            select(Product)
-            .join(Product.vehicle_links)  # Product → ProductVehicleCompatibility
-            .join(ProductVehicleCompatibility.vehicle)  # Compatibility → Vehicle
-            .join(Vehicle.model)           # Vehicle → Model
-            .join(Model.make)              # Model → Make
-            .options(
-                joinedload(Product.category),
-                joinedload(Product.inventory),
-                joinedload(Product.vehicle_links)
-                    .joinedload(ProductVehicleCompatibility.vehicle)
-                    .joinedload(Vehicle.model)
-                    .joinedload(Model.make)
-            )
-            .where(
-                Make.name.ilike(f"%{make_name}%"),
-                Model.name.ilike(f"%{model_name}%"),
-                Vehicle.year == year
-            )
-        )
-
-        if vehicle_type:
-            stmt = stmt.where(Vehicle.vehicle_type == vehicle_type)
-        if fuel_type:
-            stmt = stmt.where(Vehicle.fuel_type == fuel_type)
-
-        if drive_type:
-            stmt = stmt.where(Vehicle.drive_type == drive_type)
-
-        if transmission:
-            stmt = stmt.where(Vehicle.transmission == transmission)
-
-        # Remove duplicates if a product is linked to multiple vehicles
-        stmt = stmt.distinct().offset(skip).limit(limit)
-
-        # Fetch and return ORM Product objects
-        result = self.db.execute(stmt)
-        return result.scalars().unique().all()
->>>>>>> 4fa6801553210bf9d9631914a581b49fcb4e1643
