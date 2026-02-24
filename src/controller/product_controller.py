@@ -96,6 +96,9 @@ class ProductController:
     def list_product(self, skip: int = 0, limit: int = 100) -> List[Product]:
         """List products with pagination."""
         return self.product_repo.list(skip=skip, limit=limit)
+    
+    def list_product_active(self, skip: int = 0, limit: int = 100) -> List[Product]:
+        return self.product_repo.list_active(skip=skip, limit=limit)
 
     def list_product_by_category(self, category_id: int, skip: int = 0, limit: int = 100) -> List[Product]:
         """List products filtered by category with pagination."""
