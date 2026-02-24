@@ -6,18 +6,46 @@ from decimal import Decimal
 from typing import Any, List, Optional
 
 from sqlalchemy.orm import Session
-
+from src.repositories.product_vehicle_repository import ProductVehicleRepository
 from src.repositories.category_repositories import CategoryRepository
 from src.repositories.product_repositories import ProductRepository
-from src.schemas.product import Product  # use ORM model, not schema
-
+from src.schemas.product import Product
+from src.core.enums import TransmissionType,FuelType,DriveType,VehicleType
 
 class ProductController:
     def __init__(self, db: Session):
         self.db = db
         self.product_repo = ProductRepository(db)
         self.category_repo = CategoryRepository(db)
+        self.product_vehicle_repo = ProductVehicleRepository(db)
         # Inventory operations are handled inside ProductRepository (atomic create + delete)
+
+    def filter_products_by_vehicle(
+        self,
+        make_name: str,
+        model_name: str,
+        year: int,
+        vehicle_type: Optional[VehicleType] = None,
+        fuel_type: Optional[FuelType] = None,
+        drive_type: Optional[DriveType] = None,
+        transmission: Optional[TransmissionType] = None,
+        skip: int = 0,
+        limit: int = 100
+    ) -> List[Product]:
+        """
+        Filters products based on compatible vehicle information.
+        """
+        return self.product_repo.filter_by_vehicle(
+            make_name=make_name,
+            model_name=model_name,
+            year=year,
+            vehicle_type=vehicle_type,
+            fuel_type=fuel_type,
+            drive_type=drive_type,
+            transmission=transmission,
+            skip=skip,
+            limit=limit
+        )
 
     def create_product(
         self,
@@ -136,3 +164,5 @@ class ProductController:
         Returns True when deleted, False if product not found.
         """
         return self.product_repo.delete(product_id)
+    
+    

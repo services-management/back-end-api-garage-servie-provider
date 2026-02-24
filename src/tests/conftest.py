@@ -14,7 +14,8 @@ from src.utils.hash_password import hash_password
 
 # Import models
 from src.schemas.admin import adminModel
-from src.schemas.product import Product, Category
+from src.schemas.product import Product, Category, ProductVehicleCompatibility
+from src.schemas.vehicle import Make, Model, Vehicle, VehicleType, FuelType, DriveType, TransmissionType
 from src.schemas.techincal import TechnicalModel
 
 
@@ -166,12 +167,9 @@ def test_product(db_session, test_category):
         name="Test Product",
         selling_price=29.99,
         unit_cost=19.99,
-        category_id=test_category.category_id,
+        category_id=test_category.categoryID,
         description="A test product",
-        status="active",
-        initial_stock=100.0,
-        current_stock=100.0,
-        min_stock_level=10.0
+        status="active"
     )
     
     db_session.add(product)
@@ -191,12 +189,9 @@ def multiple_test_products(db_session, test_category):
             name=f"Test Product {i}",
             selling_price=10.00 + i,
             unit_cost=5.00 + i,
-            category_id=test_category.category_id,
+            category_id=test_category.categoryID,
             description=f"Test product {i}",
-            status="active",
-            initial_stock=50.0,
-            current_stock=50.0,
-            min_stock_level=5.0
+            status="active"
         )
         db_session.add(product)
         products.append(product)
@@ -206,3 +201,118 @@ def multiple_test_products(db_session, test_category):
         db_session.refresh(product)
     
     return products
+
+# ---------- Vehicle Test Data Fixtures ----------
+
+@pytest.fixture(scope="function")
+def test_make_toyota(db_session):
+    make = Make(name="Toyota", is_active=True)
+    db_session.add(make)
+    db_session.commit()
+    db_session.refresh(make)
+    return make
+
+@pytest.fixture(scope="function")
+def test_model_camry(db_session, test_make_toyota):
+    model = Model(name="Camry", make_id=test_make_toyota.id, make=test_make_toyota, is_active=True)
+    db_session.add(model)
+    db_session.commit()
+    db_session.refresh(model)
+    return model
+
+@pytest.fixture(scope="function")
+def test_vehicle_camry_2022(db_session, test_model_camry):
+    vehicle = Vehicle(
+        model_id=test_model_camry.id,
+        year=2022,
+        engine="2.5L I4",
+        vehicle_type=VehicleType.SEDAN,
+        fuel_type=FuelType.GASOLINE,
+        drive_type=DriveType.FWD,
+        transmission=TransmissionType.AUTOMATIC,
+        is_active=True,
+        model=test_model_camry
+    )
+    db_session.add(vehicle)
+    db_session.commit()
+    db_session.refresh(vehicle)
+    return vehicle
+
+@pytest.fixture(scope="function")
+def test_product_compatible_with_camry(db_session, test_product, test_vehicle_camry_2022):
+    # Ensure test_product has been created
+    db_session.refresh(test_product)
+
+    compatibility = ProductVehicleCompatibility(
+        product_id=test_product.product_id,
+        vehicle_id=test_vehicle_camry_2022.vehicle_id,
+        quantity_required="1 unit",
+        note="Perfect fit"
+    )
+    db_session.add(compatibility)
+    db_session.commit()
+    db_session.refresh(compatibility)
+    return compatibility
+
+@pytest.fixture(scope="function")
+def test_make_honda(db_session):
+    make = Make(name="Honda", is_active=True)
+    db_session.add(make)
+    db_session.commit()
+    db_session.refresh(make)
+    return make
+
+@pytest.fixture(scope="function")
+def test_model_civic(db_session, test_make_honda):
+    model = Model(name="Civic", make_id=test_make_honda.id, make=test_make_honda, is_active=True)
+    db_session.add(model)
+    db_session.commit()
+    db_session.refresh(model)
+    return model
+
+@pytest.fixture(scope="function")
+def test_vehicle_civic_2023(db_session, test_model_civic):
+    vehicle = Vehicle(
+        model_id=test_model_civic.id,
+        year=2023,
+        engine="1.5L Turbo",
+        vehicle_type=VehicleType.SEDAN,
+        fuel_type=FuelType.GASOLINE,
+        drive_type=DriveType.FWD,
+        transmission=TransmissionType.CVT,
+        is_active=True,
+        model=test_model_civic
+    )
+    db_session.add(vehicle)
+    db_session.commit()
+    db_session.refresh(vehicle)
+    return vehicle
+
+@pytest.fixture(scope="function")
+def another_test_product(db_session, test_category):
+    product = Product(
+        name="Honda Specific Part",
+        selling_price=50.00,
+        unit_cost=25.00,
+        category_id=test_category.categoryID,
+        description="A part for Honda vehicles",
+        status="active"
+    )
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+    return product
+
+@pytest.fixture(scope="function")
+def test_product_compatible_with_civic(db_session, another_test_product, test_vehicle_civic_2023):
+    db_session.refresh(another_test_product)
+    compatibility = ProductVehicleCompatibility(
+        product_id=another_test_product.product_id,
+        vehicle_id=test_vehicle_civic_2023.vehicle_id,
+        quantity_required="1 unit",
+        note="Specific to Civic"
+    )
+    db_session.add(compatibility)
+    db_session.commit()
+    db_session.refresh(compatibility)
+    return compatibility

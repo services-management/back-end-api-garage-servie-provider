@@ -39,6 +39,7 @@ class Product(Base):
     # relationship with service associations
     service_associations = relationship("ServiceProductAssociation", back_populates="product")
 
+    vehicle_links = relationship("ProductVehicleCompatibility", back_populates="product")
 class Inventory(Base):
     __tablename__ = 'inventory'
 
@@ -66,6 +67,8 @@ class Service(Base):
         back_populates="service",
         cascade="all, delete-orphan"
     )
+    # Add relationship to ServiceVehicleCompatibility
+    vehicle_links = relationship("ServiceVehicleCompatibility", back_populates="service")
 
 
 class ServiceProductAssociation(Base):
@@ -78,3 +81,28 @@ class ServiceProductAssociation(Base):
 
     service = relationship("Service", back_populates="associations")
     product = relationship("Product", back_populates="service_associations")
+
+class ProductVehicleCompatibility(Base):
+    __tablename__ = "product_vehicle_compatibility"
+
+    product_id = Column(Integer, ForeignKey('products.product_id'), primary_key=True)
+    vehicle_id = Column(Integer, ForeignKey('vehicles.vehicle_id'), primary_key=True)
+    
+    quantity_required = Column(String(50), nullable=True) 
+    note = Column(String(255), nullable=True)
+    # Relationships
+    product = relationship("Product", back_populates="vehicle_links")
+    vehicle = relationship("Vehicle", back_populates="product_links")
+
+# NEW: ServiceVehicleCompatibility association table
+class ServiceVehicleCompatibility(Base):
+    __tablename__ = "service_vehicle_compatibility"
+
+    service_id = Column(Integer, ForeignKey('services.service_id'), primary_key=True)
+    vehicle_id = Column(Integer, ForeignKey('vehicles.vehicle_id'), primary_key=True)
+
+    note = Column(String(255), nullable=True) # Optional note for compatibility
+
+    # Relationships
+    service = relationship("Service", back_populates="vehicle_links")
+    vehicle = relationship("Vehicle", back_populates="service_links") # Assuming Vehicle model will have service_links

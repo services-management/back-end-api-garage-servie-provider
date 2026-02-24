@@ -1,15 +1,13 @@
 
 # src/schemas/product.py
 from decimal import Decimal
-from typing import Optional
-
-from pydantic import BaseModel, Field, validator
+from typing import Optional,List
+from pydantic import BaseModel, Field, validator,field_validator,ConfigDict
 
 from src.models.category_model import CategoryResponse  # fixed import
 from src.models.inventory_model import InventorySnapshot  # fixed import
 from src.schemas.product import ProductStatus
-
-
+from src.models.vehicle_model import VehicleBase
 # --- Product Base Schemas ---
 class ProductBase(BaseModel):
     name: str = Field(..., min_length=1, example="Brake Pad", description="Unique name of the product/part.")
@@ -24,12 +22,12 @@ class ProductBase(BaseModel):
             raise ValueError("Product name cannot be blank.")
         return v
 
-    @validator("unit_cost", "selling_price", pre=True)
-    def to_decimal(cls, v):
-        # Allow float/str inputs but convert to Decimal safely
-        if v is None:
-            return v
-        return Decimal(str(v))
+    @field_validator("unit_cost", "selling_price", mode="before")
+    @classmethod
+    def convert_to_decimal(cls, v):
+        if v is not None:
+            return Decimal(str(v))
+        return v
 
     class Config:
         from_attributes = True
@@ -102,3 +100,41 @@ class ProductResponse(ProductBase):
 
     class Config:
         from_attributes = True
+
+class ProductVehicleLink(BaseModel):
+    product_id: int
+    vehicle_id: int
+    note: Optional[str] = None
+    # This now matches the DB column:
+    quantity_required: Optional[str] = Field(None, example="4.5L")
+    note: Optional[str] = Field(None, description="Fitment advice (e.g. 'Use with new washer')")
+    vehicle: Optional[VehicleBase] = None
+    class Config:
+        from_attributes = True
+
+class ProductOut(BaseModel):
+    product_id: int = Field(..., example=123)
+    name: Optional[str] = Field(None, min_length=1, example="Brake Pad - Premium")
+    selling_price: Optional[Decimal] = Field(None, gt=Decimal("0"), example=Decimal("21.99"))
+    description :Optional[str] = Field(None,min_length=1,max_length=255)
+    image_url: Optional[str] = Field(None)
+    status: Optional[ProductStatus] = None
+    category: Optional[CategoryResponse] = None # Include Category details
+    inventory: Optional[InventorySnapshot] = None # Include Inventory details
+    vehicle_links: List[ProductVehicleLink] = [] # List of linked vehicles
+    @validator("name")
+    def name_not_blank(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.strip():
+            raise ValueError("Product name cannot be blank.")
+        return v
+
+    @validator("selling_price", pre=True)
+    def to_decimal_update(cls, v):
+        if v is None:
+            return v
+        return Decimal(str(v))
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        use_enum_values=True
+    )
