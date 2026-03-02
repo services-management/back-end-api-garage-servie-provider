@@ -23,7 +23,7 @@ app = FastAPI(
 )
 configure_mappers()
 origins = [
-    "https://garas-api.domrey.online/",      # Your local React/Next.js frontend  
+    "https://garas-admin.domrey.online/",      # Your local React/Next.js frontend  
 ]
 app.add_middleware(
     CORSMiddleware,
