@@ -46,7 +46,7 @@ class BookingCreate(BaseModel):
     car_make: str = Field(..., example="Toyota")
     car_model: str = Field(..., example="Camry")
     
-    items: List[BookingItemCreate] = Field(..., min_items=1)
+    items: List[BookingItemCreate] = Field(..., min_length=1)
     # Logistics
     appointment_date: date
     start_time: time

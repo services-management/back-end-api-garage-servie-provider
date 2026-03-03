@@ -15,9 +15,13 @@ class TechnicalRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get(self, id: int) -> Optional[TechnicalModel]:
+    def get(self, technical_id: uuid.UUID) -> Optional[TechnicalModel]:
         """Retrieves a Technical account by its unique ID."""
-        return self.db.query(TechnicalModel).get(id)
+        return self.db.query(TechnicalModel).filter(TechnicalModel.technical_id == technical_id).first()
+
+    def get_by_id(self, technical_id: uuid.UUID) -> Optional[TechnicalModel]:
+        """Alias for get() to match common patterns."""
+        return self.get(technical_id)
 
     def get_by_username(self, username: str) -> Optional[TechnicalModel]:
         """Retrieves a Technical account by its unique username."""
@@ -66,9 +70,9 @@ class TechnicalRepository:
         self.db.refresh(db_obj)
         return db_obj
 
-    def remove(self, id: int) -> Optional[TechnicalModel]:
+    def remove(self, technical_id: uuid.UUID) -> Optional[TechnicalModel]:
         """Delete a technical account by ID."""
-        obj = self.db.query(TechnicalModel).get(id)
+        obj = self.db.query(TechnicalModel).filter(TechnicalModel.technical_id == technical_id).first()
         if obj:
             self.db.delete(obj)
             self.db.commit()

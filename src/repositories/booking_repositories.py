@@ -172,14 +172,13 @@ class BookingRepository:
         """
         return self.db.query(Booking).filter(Booking.user_id == user_id).order_by(Booking.appointment_date.desc()).all()    
 
-    def create_admin_booking(self, booking_info:AdminBookingCreate)-> Booking:
+    def create_admin_booking(self, booking_info:AdminBookingCreate, user_id: UUID)-> Booking:
         """
         Create booking by admin with assigned garage
         """
-        user = self.user_repo.get_user_by_phone(booking_info.contact_phone)
         # initialize booking object 
         new_booking = Booking(
-            user_id = user.user_id,
+            user_id = user_id,
             contact_phone=booking_info.contact_phone,
             car_make=booking_info.car_make,
             car_model=booking_info.car_model,
@@ -190,6 +189,7 @@ class BookingRepository:
             source=booking_info.source,
             internal_note=booking_info.internal_note,
             assigned_garage_id=booking_info.assigned_garage_id,
+            techincian_id=getattr(booking_info, 'techincian_id', None),
             status=BookingStatus.CONFIRMED,
             payment_status="pending",
             amount_paid=Decimal("0.0"),

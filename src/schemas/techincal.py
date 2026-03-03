@@ -40,6 +40,8 @@ class TechnicalModel(Base):
 
     status = Column(TechnicalStatusEnum, default="free", nullable=False)
 
+    is_active = Column(Boolean, default=True, nullable=False)
+
     # Each technical belongs to one team (nullable allowed)
     team = relationship(
         "TechnicalTeam",

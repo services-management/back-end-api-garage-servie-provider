@@ -36,3 +36,22 @@ class TransmissionType(str, Enum):
     CVT = "CVT"
     SEMI_AUTOMATIC = "Semi-Automatic"
     DUAL_CLUTCH = "Dual Clutch"
+
+class ServiceType(str, Enum):
+    GARAGE = "Garage"
+    HOME = "Home"
+
+class BookingStatus(str, Enum):
+    PENDING = "Pending"
+    CONFIRMED = "Confirmed"
+    CANCELLED = "Cancelled"
+    REJECTED = "Rejected"
+    COMPLETED = "Completed"
+
+class BookingSource(str, Enum):
+    WEB = "Web"
+    PHONE = "Phone"
+
+class UserStatus(str, Enum):
+    GUEST = "Guest"
+    ACTIVE = "Active"

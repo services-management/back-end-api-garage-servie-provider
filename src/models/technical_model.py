@@ -42,6 +42,7 @@ class TechnicalUpdate(BaseModel):
     # Note: Status and Role are usually updated separately by an Admin, 
     # but we include status here for flexibility.
     status: Optional[TechnicalStatus] = None 
+    is_active: Optional[bool] = None 
     
     @validator('phone_number', pre=True, always=True)
     def validate_phone_on_update(cls, v):
@@ -68,6 +69,7 @@ class TechnicalOut(BaseModel):
     role: str
     status: TechnicalStatus # Use the Literal type for better validation
     team_id: Optional[uuid.UUID] = None
+    is_active: bool
 
     class Config:
         from_attributes = True

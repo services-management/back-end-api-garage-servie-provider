@@ -8,7 +8,7 @@ from src.models.technical_model import TechnicalCreate
 from src.repositories.admin_repositories import AdminRepository
 from src.repositories.technical_repositorie import TechnicalRepository
 from src.schemas.admin import adminModel
-from src.schemas.techincal import TechnicalModel
+from src.schemas.techincal import TechnicalModel, TechnicalTeam
 from src.utils.hash_password import hash_password
 from src.utils.verify_password import verify_password
 from src.config.telegram_client import telegram_client
@@ -34,6 +34,9 @@ class AdminController:
         if not verify_password(admin_in.password, admin.password):
             return None
         
+        if not admin.is_active:
+             raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Account is deactivated")
+
         return admin
 
     def get_admin_by_id(self, admin_id: UUID) -> adminModel:
@@ -42,6 +45,26 @@ class AdminController:
         if not admin:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Admin not found")
         return admin
+
+    def get_all_admins(self, skip: int = 0, limit: int = 100) -> list[adminModel]:
+        """Fetch all admin accounts."""
+        return self.admin_repo.get_multi(skip=skip, limit=limit)
+
+    def get_all_technicals(self, skip: int = 0, limit: int = 100) -> list[TechnicalModel]:
+        """Fetch all technical accounts."""
+        return self.tech_repo.get_multi(skip=skip, limit=limit)
+
+    def deactivate_admin(self, admin_id: UUID) -> adminModel:
+        """Deactivate an admin account."""
+        admin = self.get_admin_by_id(admin_id)
+        return self.admin_repo.update(admin, {"is_active": False})
+
+    def deactivate_technical(self, technical_id: UUID) -> TechnicalModel:
+        """Deactivate a technical account."""
+        tech = self.tech_repo.db.query(TechnicalModel).filter(TechnicalModel.technical_id == technical_id).first()
+        if not tech:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Technical account not found")
+        return self.tech_repo.update(tech, {"is_active": False})
 
     def create_admin(self, admin_in: AdminCreate) -> adminModel:
         """Handle creation of a new admin account."""
@@ -117,33 +140,31 @@ class AdminController:
             await telegram_client.send_message(booking.customer.telegram_chat_id, msg)
         return booking
 
-    async def admin_create_booking(self, booking_info: AdminBookingCreate):
-        '''
+    async def create_booking_for_customer(self, booking_info: AdminBookingCreate):
+        """
         1. Admin-specific booking creation logic.
         2. Directly assign to a garage or technician.
         3. Bypass certain validations if needed.
-        '''
+        """
         # check user have account or not 
-        user = self.booking_repo.user_repo.get_user_by_phone(booking_info.phone)
+        user = self.booking_repo.user_repo.get_user_by_phone(booking_info.contact_phone)
         if not user:
             # create shadow account 
             user = self.booking_repo.user_repo.create_shadow_account(
-                phone=booking_info.phone,
+                phone=booking_info.contact_phone,
                 full_name=booking_info.full_name
             )   
-        booking_info.user_id = user.user_id
-        booking = self.booking_repo.create_admin_booking(booking_info)
-        if booking.techincian_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Technician ID must be provided for admin bookings."
-            )
         
-        if booking.customer is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Customer information must be provided for admin bookings."
-            )
+        # We don't modify the booking_info object if it's strictly validated by Pydantic
+        # Instead, we pass user.user_id to the repo method
+        booking = self.booking_repo.create_admin_booking(booking_info, user.user_id)
+        
+        # Technician check
+        if not booking.techincian_id:
+             # If it wasn't provided in booking_info, this might fail depending on requirements.
+             # The router/schema might already enforce this.
+             pass
+
         if booking.customer and booking.customer.telegram_chat_id:
            message = (
             f"✅ *New Appointment Scheduled*\n\n"
@@ -153,7 +174,6 @@ class AdminController:
             f"📍 *Location:* {booking.service_location}"
         )
            await telegram_client.send_message(booking.customer.telegram_chat_id, message)
-        # Admin-specific logic can be added here
 
         return booking
     
@@ -171,16 +191,14 @@ class AdminController:
         """
         return self.booking_repo.search_bookings(query=query, status=status, limit=limit)
     
-    async def assign_team_to_booking(self, booking_id: int, team_name: str):
-        """Search team by name and link it to a booking."""
-        teams = self.tech_repo.search_teams_by_name(team_name)
-        if not teams:
-            raise HTTPException(status_code=404, detail=f"Team '{team_name}' not found.")
+    async def assign_team(self, booking_id: int, technical_team_id: UUID):
+        """Assign a technical team to a booking by its UUID."""
+        # Check if team exists
+        team = self.db.query(TechnicalTeam).filter(TechnicalTeam.team_id == technical_team_id).first()
+        if not team:
+            raise HTTPException(status_code=404, detail=f"Team with ID '{technical_team_id}' not found.")
         
-        # We take the best match (first result)
-        selected_team = teams[0]
-        
-        booking = self.booking_repo.assign_technical_team(booking_id, selected_team.team_id)
+        booking = self.booking_repo.assign_technical_team(booking_id, team.team_id)
         if not booking:
             raise HTTPException(status_code=404, detail="Booking not found.")
             

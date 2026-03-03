@@ -55,8 +55,14 @@ def get_current_technical_user(
     token_role = payload.get("role")
     
     # CRITICAL CHECK: Ensure the token belongs to a technical user
-    if not tech_id_str or token_role != "technical":
+    if not tech_id_str:
         raise credentials_exception
+    
+    if token_role != "technical":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operation restricted to technical staff",
+        )
         
     # 3. Convert ID to UUID (since your DB uses UUID)
     try:
@@ -71,6 +77,12 @@ def get_current_technical_user(
 
     if technical_model is None:
         raise credentials_exception
+    
+    if not technical_model.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Technical account is deactivated",
+        )
         
     # 5. Return the Pydantic output model
     return TechnicalOut.model_validate(technical_model)
@@ -125,6 +137,12 @@ def get_current_admin_user(
 
     if admin_model is None:
         raise credentials_exception
+    
+    if not admin_model.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin account is deactivated",
+        )
         
     # 5. Return the Pydantic output model
     return AdminOut.model_validate(admin_model)
@@ -162,6 +180,9 @@ def get_current_user_admin_or_technical(
         if not admin:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Admin user not found")
         
+        if not admin.is_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin account is deactivated")
+
         return AdminOut.model_validate(admin)
     
     
@@ -169,6 +190,10 @@ def get_current_user_admin_or_technical(
         technical = TechnicalRepository(db).get_by_id(user_id)
         if not technical:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Technical user not found")
+        
+        if not technical.is_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Technical account is deactivated")
+
         return TechnicalOut.model_validate(technical)
     
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
@@ -208,7 +233,7 @@ async def get_optional_user(
             admin = AdminRepository(db).get_by_id(user_id)
             return AdminOut.model_validate(admin) if admin else None
 
-        elif role == "techincal":
+        elif role == "technical":
             tech = TechnicalRepository(db).get(user_id)
             return TechnicalOut.model_validate(tech) if tech else None
         
@@ -227,15 +252,22 @@ async def get_optional_user(
         )
 
 def get_current_customer(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)
 ) -> UserResponse:
-    token = credentials.credentials
     """
     Decodes the JWT token, verifies the 'customer' role, and fetches the 
     corresponding User record from the database.
     If anything fails, it raises a 401 Unauthorized exception.
     """
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    token = credentials.credentials
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials for customer",

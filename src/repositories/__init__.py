@@ -1,5 +1,4 @@
-from .admin_repositories import \
-    AdminRepository  # Note the file name/class name
+from .admin_repositories import AdminRepository
 from .category_repositories import CategoryRepository
 from .inventory_repositories import InventoryRepository
 from .product_repositories import ProductRepository
