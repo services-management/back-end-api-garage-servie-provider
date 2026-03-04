@@ -110,3 +110,6 @@ class UserRepository:
 
     def link_telegram_to_shadow(self, user_id: UUID, chat_id: int, username: str) -> User:
         return self.update_user(user_id, {"telegram_chat_id": chat_id, "telegram_username": username})
+
+    def get_user_by_telegram_chat_id(self, chat_id: int) -> Optional[User]:
+        return self.db.query(User).filter(User.telegram_chat_id == chat_id).first()

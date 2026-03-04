@@ -40,6 +40,7 @@ class AdminOut(BaseModel):
    email_phone : Optional[str]
    role: str
    is_active: bool
+   telegram_magic_link: Optional[str] = None
    class Config:
         from_attributes = True
 

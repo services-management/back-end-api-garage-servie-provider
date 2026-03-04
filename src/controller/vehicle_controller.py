@@ -21,7 +21,9 @@ class Vehiclecontroller:
         return self.vehicle_repo.get_years_by_model(model_id)
 
     def get_final_configurations(self, model_id: int, year: int):
-        return self.vehicle_repo.get_configs(model_id, year)
+        vehicles = self.vehicle_repo.get_configs(model_id, year)
+        # Extract unique engine strings (e.g., ["2.0L", "3.5L"])
+        return sorted(list(set(v.engine for v in vehicles if v.engine)))
 
     # ==================== ADMIN ACTIONS ====================
 

@@ -6,11 +6,13 @@ from sqlalchemy import ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 
 from src.config.database import Base
+from src.core.enums import ServiceType
 
 
 class ProductStatus(str, enum.Enum):
     ACTIVE = "Active"
     INACTIVE = "Inactive"
+    DELETED = "Deleted"
 class Category(Base):
     __tablename__ = "categories"
 
@@ -27,6 +29,7 @@ class Product(Base):
     name = Column(String, nullable=False)
     unit_cost = Column(Numeric(10,2),nullable=True)
     selling_price = Column(Numeric(10,2), nullable=False)
+    price_adjustment = Column(Numeric(10,2), nullable=False, default=0) # Extra fee per unit for Home Service
     description = Column(String(255), nullable=True)
     image_url = Column(String(255), nullable=True)
     status = Column(SQLEnum(ProductStatus), default=ProductStatus.ACTIVE)
@@ -58,9 +61,12 @@ class Service(Base):
     name = Column(String(100), unique=True, index=True, nullable=False)
     description = Column(Text, nullable=True)
     image_url = Column(String(250), nullable=False)
-    price = Column(Numeric(10, 2), nullable=False)
+    garage_price = Column(Numeric(10, 2), nullable=False, default=0)
+    home_price = Column(Numeric(10, 2), nullable=False, default=0)
     duration_minutes = Column(Integer, nullable=False)
     is_available = Column(Boolean, server_default='True', nullable=False)
+    status = Column(SQLEnum(ProductStatus), default=ProductStatus.ACTIVE)
+    service_type = Column(SQLEnum(ServiceType, native_enum=False), nullable=False, default=ServiceType.GARAGE)
     
     associations = relationship(
         "ServiceProductAssociation",

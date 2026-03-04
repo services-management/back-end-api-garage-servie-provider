@@ -223,11 +223,11 @@ class ProductRepository(BaseRepository[Product]):
 
     # --- soft delete product ---
     def delete(self, product_id: int) -> bool:
-        # Delete inventory first (inventory PK == product_id)
-        stmt =  self.db.get(Product, product_id)
-        if not stmt:
+        product = self.db.get(Product, product_id)
+        if not product:
             return False
         
-        update_product = self.update(product_id=product_id,status=ProductStatus.INACTIVE)
+        # Soft delete by setting status to DELETED
+        update_product = self.update(product_id=product_id, status=ProductStatus.DELETED)
 
         return update_product is not None

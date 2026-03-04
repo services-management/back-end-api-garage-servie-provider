@@ -60,7 +60,7 @@ class Booking(Base):
     note = Column(String(255),nullable=True)
     internal_note = Column(Text, nullable=True)
     assigned_garage_id = Column(UUID(as_uuid=True), nullable=True)
-    techincian_id = Column(UUID(as_uuid=True), nullable=True)
+    technician_id = Column(UUID(as_uuid=True), nullable=True)
     # Status & Source
     status = Column(
         SQLEnum(BookingStatus, name="booking_status"),

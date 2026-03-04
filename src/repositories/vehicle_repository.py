@@ -137,3 +137,12 @@ class VehicleRepository:
             Vehicle.year == year,
             Vehicle.is_active
         ).all()
+
+    def get_vehicle_id(self, model_id: int, year: int, engine: str) -> Optional[int]:
+        vehicle = self.db.query(Vehicle).filter(
+            Vehicle.model_id == model_id,
+            Vehicle.year == year,
+            Vehicle.engine == engine,
+            Vehicle.is_active
+        ).first()
+        return vehicle.vehicle_id if vehicle else None

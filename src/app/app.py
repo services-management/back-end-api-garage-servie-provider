@@ -7,7 +7,8 @@ from src.config.database import Base, SessionLocal, engine, get_db
 from src.repositories.admin_repositories import AdminRepository
 from src.routers import (admin_router, category_router, inventory_router,
                          product_router, service_router, technical_router, combo_service_router,
-                         booking_router, telegram_router, auth_router, vehicle_router, user_router)
+                         booking_router, telegram_router, auth_router, vehicle_router, user_router,
+                         slideshow_router)
 # Import all models to register them with SQLAlchemy Base
 from src.schemas.admin import adminModel
 # src/app/app.py
@@ -113,12 +114,13 @@ def health_check():
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(technical_router)
+app.include_router(user_router)
+app.include_router(booking_router)
+app.include_router(service_router)
+app.include_router(combo_service_router)
 app.include_router(product_router)
 app.include_router(category_router)
 app.include_router(inventory_router)
-app.include_router(service_router)
-app.include_router(combo_service_router)
-app.include_router(booking_router)
-app.include_router(telegram_router)
 app.include_router(vehicle_router)
-app.include_router(user_router)
+app.include_router(telegram_router)
+app.include_router(slideshow_router)

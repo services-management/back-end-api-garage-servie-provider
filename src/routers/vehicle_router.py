@@ -41,7 +41,7 @@ def get_years_by_model(model_id: int, controller: Vehiclecontroller = Depends(ge
         raise HTTPException(status_code=404, detail="No active years found for this model")
     return years
 
-@router.get("/filter", response_model=List[VehicleBase])
+@router.get("/filter", response_model=List[str])
 def get_vehicle_configurations(model_id: int, year: int, controller: Vehiclecontroller = Depends(get_controller)):
     return controller.get_final_configurations(model_id, year)
 

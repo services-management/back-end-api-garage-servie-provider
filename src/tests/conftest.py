@@ -166,13 +166,15 @@ def test_product(db_session, test_category):
 def test_service(db_session):
     from decimal import Decimal
     service = Service(
-        name="Test Service", 
-        description="Desc", 
-        image_url="http://ex.com/img.jpg", 
-        price=Decimal("50.00"), 
-        duration_minutes=60, 
+        name="Oil Change Test",
+        description="Desc",
+        image_url="http://ex.com/img.jpg",
+        garage_price=Decimal("50.00"),
+        home_price=Decimal("70.00"),
+        duration_minutes=60,
         is_available=True
     )
+
     db_session.add(service)
     db_session.commit()
     db_session.refresh(service)

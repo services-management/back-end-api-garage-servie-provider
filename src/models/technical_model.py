@@ -70,6 +70,7 @@ class TechnicalOut(BaseModel):
     status: TechnicalStatus # Use the Literal type for better validation
     team_id: Optional[uuid.UUID] = None
     is_active: bool
+    telegram_magic_link: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -79,6 +79,7 @@ def test_create_booking_past_date(client, test_service):
         "phone": "+1234567890",
         "car_make": "Toyota",
         "car_model": "Camry",
+        "car_year": 2022,
         "items": [{"service_id": test_service.service_id, "quantity": 1}],
         "appointment_date": str(date.today() - timedelta(days=1)),
         "start_time": "10:00:00",

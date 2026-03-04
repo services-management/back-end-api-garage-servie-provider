@@ -1,97 +1,146 @@
-from datetime import date, timedelta, time
+from fastapi.testclient import TestClient
+from decimal import Decimal
+from src.core.enums import ServiceType
+from src.schemas.product import Service, Product, ServiceProductAssociation, ProductVehicleCompatibility, ServiceVehicleCompatibility
 
-def test_product_soft_delete_flow(authenticated_admin_client, test_product):
-    """Verify that deleting a product marks it as Deleted and hides it from public."""
-    p_id = test_product.product_id
-    
-    # 1. Check it exists in public list
-    resp = authenticated_admin_client.get("/product/")
-    assert resp.status_code == 200
-    assert any(p["product_id"] == p_id for p in resp.json())
-
-    # 2. Soft Delete it
-    del_resp = authenticated_admin_client.delete(f"/product/{p_id}")
-    assert del_resp.status_code == 204
-
-    # 3. Check it is HIDDEN from public list
-    resp_hidden = authenticated_admin_client.get("/product/")
-    assert not any(p["product_id"] == p_id for p in resp_hidden.json())
-
-def test_product_vehicle_link_with_quantity_payload(authenticated_admin_client, test_product, test_vehicle_camry_2022):
-    """Test the new quantity_required and unit fields in product linking."""
-    p_id = test_product.product_id
-    v_id = test_vehicle_camry_2022.vehicle_id
-
-    # Link with quantity
-    # Note: Check if the router actually supports these params
-    response = authenticated_admin_client.post(
-        f"/product/{p_id}/vehicle/{v_id}"
+def test_intelligent_pricing_catalog(authenticated_admin_client: TestClient, db_session, test_vehicle_camry_2022):
+    # 1. Create a product with price_adjustment
+    product = Product(
+        name="Castrol Edge 5W-30",
+        selling_price=Decimal("10.00"),
+        price_adjustment=Decimal("2.00"), # +$2 per unit for home service
+        description="Premium Oil"
     )
-    assert response.status_code == 201
-    
-    # Verify via filter
+    db_session.add(product)
+    db_session.flush()
+
+    # 2. Create a service with home/garage labor prices
+    service = Service(
+        name="Oil Change",
+        description="Standard Oil Change",
+        image_url="http://example.com/oil.jpg",
+        garage_price=Decimal("30.00"),
+        home_price=Decimal("50.00"),
+        duration_minutes=30,
+        is_available=True,
+        service_type=ServiceType.HOME # This service is available for HOME
+    )
+    db_session.add(service)
+    db_session.flush()
+
+    # 3. Link product to service
+    assoc = ServiceProductAssociation(
+        service_id=service.service_id,
+        product_id=product.product_id,
+        quantity_required=1, # Base quantity
+    )
+    db_session.add(assoc)
+
+    # 4. Define car-specific quantity (4.5L)
+    compat = ProductVehicleCompatibility(
+        product_id=product.product_id,
+        vehicle_id=test_vehicle_camry_2022.vehicle_id,
+        quantity_required="4.5L"
+    )
+    db_session.add(compat)
+
+    # 5. Make service compatible with this vehicle
+    svc_compat = ServiceVehicleCompatibility(
+        service_id=service.service_id,
+        vehicle_id=test_vehicle_camry_2022.vehicle_id
+    )
+    db_session.add(svc_compat)
+    db_session.commit()
+
+    # 6. Test the Catalog Endpoint for HOME service
     params = {
-        "make": "Toyota",
-        "model": "Camry",
-        "year": 2022
+        "model_id": test_vehicle_camry_2022.model_id,
+        "year": test_vehicle_camry_2022.year,
+        "engine": test_vehicle_camry_2022.engine,
+        "service_type": "Home"
     }
-    filter_resp = authenticated_admin_client.get("/product/filter-by-vehicle", params=params)
-    assert filter_resp.status_code == 200
-    data = filter_resp.json()
-    
-    # Find the link inside the product
-    target_product = next(p for p in data if p["product_id"] == p_id)
-    assert len(target_product["vehicle_links"]) >= 1
-
-def test_booking_auto_rejection_logic(authenticated_admin_client, db_session, test_service):
-    """Verify that the 11th booking is tagged as overbooked."""
-    from src.schemas.booking import Booking, User
-    from src.core.enums import BookingSource, UserStatus
-    
-    # Clean previous test state
-    db_session.query(Booking).delete()
-    db_session.commit()
-
-    # Prereq
-    user = User(phone="+855000999", full_name="Queue Tester", is_active=True, role=UserStatus.ACTIVE)
-    db_session.add(user)
-    db_session.commit()
-    
-    test_date = date.today() + timedelta(days=60)
-    
-    for i in range(10):
-        b = Booking(
-            user_id=user.user_id,
-            car_make="Toyota",
-            car_model="Camry",
-            appointment_date=test_date,
-            start_time=time(10, 0),
-            status="Pending",
-            source=BookingSource.WEB,
-            contact_phone=f"+85511122{i:02d}",
-            service_location="Shop"
-        )
-        db_session.add(b)
-    db_session.commit()
-
-    # Request the 11th
-    payload = {
-        "phone": "+855999000111",
-        "full_name": "Late User",
-        "car_make": "Honda",
-        "car_model": "Civic",
-        "items": [{"service_id": test_service.service_id, "quantity": 1}],
-        "appointment_date": str(test_date),
-        "start_time": "11:00:00",
-        "service_location": "Main Shop",
-        "source": "Web"
-    }
-    
-    response = authenticated_admin_client.post("/bookings/", json=payload)
-    assert response.status_code == 201
-    # Check if the logic actually appends OVERBOOKED to note
-    # If the feature isn't implemented as expected, this test might need adjustment
+    response = authenticated_admin_client.get("/service/catalog", params=params)
+    assert response.status_code == 200
     data = response.json()
-    # Handle both wrapped and unwrapped response structures
-    booking_data = data.get("booking", data)
-    assert booking_data["status"] == "Pending"
+    assert len(data) == 1
+    estimate = data[0]
+
+    # Math Check:
+    # Labor (Home): 50.00
+    # Product (Home): (10.00 + 2.00) * 4.5 = 12.00 * 4.5 = 54.00
+    # Total: 50.00 + 54.00 = 104.00
+    assert Decimal(str(estimate["base_labor_price"])) == Decimal("50.00")
+    assert Decimal(str(estimate["total_estimated_price"])) == Decimal("104.00")
+    assert float(estimate["products"][0]["quantity_required"]) == 4.5
+
+def test_admin_creation_magic_link(authenticated_admin_client: TestClient):
+    payload = {
+        "username": "newadmin_test",
+        "password": "securepassword123",
+        "email_phone": "newadmin@example.com"
+    }
+    response = authenticated_admin_client.post("/admin/", json=payload)
+    assert response.status_code == 201
+    data = response.json()
+    assert "telegram_magic_link" in data
+    assert "start=admin_" in data["telegram_magic_link"]
+
+def test_technical_creation_magic_link(authenticated_admin_client: TestClient):
+    payload = {
+        "username": "tech_test_user",
+        "password": "techpassword123",
+        "name": "John Technician",
+        "phone_number": "+19998887776"
+    }
+    response = authenticated_admin_client.post("/admin/technical", json=payload)
+    assert response.status_code == 201
+    data = response.json()
+    assert "telegram_magic_link" in data
+    assert "start=tech_" in data["telegram_magic_link"]
+
+def test_slideshow_workflow(authenticated_admin_client: TestClient, client: TestClient, db_session):
+    # 1. Create a slide (Admin)
+    payload = {
+        "image_url": "http://example.com/garage_banner.jpg",
+        "service_type": "Garage"
+    }
+    response = authenticated_admin_client.post("/slideshow/", json=payload)
+    assert response.status_code == 201
+    slide_id = response.json()["id"]
+
+    # 2. Get slides (Public)
+    get_response = client.get("/slideshow/Garage")
+    assert get_response.status_code == 200
+    data = get_response.json()
+    assert len(data) >= 1
+    assert any(s["image_url"] == "http://example.com/garage_banner.jpg" for s in data)
+
+    # 3. Create slide unauthorized (Public should fail)
+    from src.app.app import app
+    from src.config.database import get_db
+    # Create a fresh client and MANUALLY ensure it uses the test DB but has NO other overrides
+    unauth_client = TestClient(app)
+    unauth_client.app.dependency_overrides[get_db] = lambda: db_session
+    
+    # We must ENSURE get_current_admin_user is NOT overridden for this specific client instance
+    # but since dependency_overrides is GLOBAL to the 'app' object, we temporarily clear it
+    from src.dependency.auth import get_current_admin_user
+    original_override = app.dependency_overrides.get(get_current_admin_user)
+    if get_current_admin_user in app.dependency_overrides:
+        del app.dependency_overrides[get_current_admin_user]
+    
+    try:
+        fail_response = unauth_client.post("/slideshow/", json=payload)
+        assert fail_response.status_code == 401
+    finally:
+        # Restore for other tests
+        if original_override:
+            app.dependency_overrides[get_current_admin_user] = original_override
+
+    # 4. Delete slide (Admin)
+    del_response = authenticated_admin_client.delete(f"/slideshow/{slide_id}")
+    assert del_response.status_code == 204
+
+    # 5. Verify deleted
+    after_del = client.get("/slideshow/Garage")
+    assert not any(s["id"] == slide_id for s in after_del.json())

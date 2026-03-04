@@ -94,7 +94,7 @@ class BookingRepository:
                     raise ValueError(f"Service ID {item_in.service_id} not found.")
                 
                 current_service_id = item_in.service_id
-                unit_price += service.price # Labor
+                unit_price += service.garage_price # Labor
                 
                 # Add bundled products from associations
                 for assoc in service.associations:
@@ -189,7 +189,7 @@ class BookingRepository:
             source=booking_info.source,
             internal_note=booking_info.internal_note,
             assigned_garage_id=booking_info.assigned_garage_id,
-            techincian_id=getattr(booking_info, 'techincian_id', None),
+            technician_id=getattr(booking_info, 'technician_id', None),
             status=BookingStatus.CONFIRMED,
             payment_status="pending",
             amount_paid=Decimal("0.0"),
