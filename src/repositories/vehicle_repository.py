@@ -2,7 +2,6 @@
 
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
-from sqlalchemy import select
 from src.schemas.vehicle import Make, Model, Vehicle
 from src.core.enums import VehicleType, TransmissionType, FuelType, DriveType
 
@@ -28,7 +27,7 @@ class VehicleRepository:
     def get_all_makes(self, active_only: bool = True) -> List[Make]:
         query = self.db.query(Make)
         if active_only:
-            query = query.filter(Make.is_active == True)
+            query = query.filter(Make.is_active)
         return query.all()
 
     def update_make(self, make_id: int, name: str) -> Optional[Make]:
@@ -62,7 +61,7 @@ class VehicleRepository:
     def get_models_by_make(self, make_id: int, active_only: bool = True) -> List[Model]:
         query = self.db.query(Model).filter(Model.make_id == make_id)
         if active_only:
-            query = query.filter(Model.is_active == True)
+            query = query.filter(Model.is_active)
         return query.all()
 
     def update_model(self, model_id: int, name: str) -> Optional[Model]:
@@ -105,7 +104,7 @@ class VehicleRepository:
         return self.db.query(Vehicle).filter(Vehicle.vehicle_id == vehicle_id).first()
 
     def get_all_active(self) -> List[Vehicle]:
-        return self.db.query(Vehicle).filter(Vehicle.is_active == True).all()
+        return self.db.query(Vehicle).filter(Vehicle.is_active).all()
 
     def update_vehicle(self, vehicle_id: int, update_data: Dict[str, Any]) -> Optional[Vehicle]:
         db_vehicle = self.get_by_id(vehicle_id)
@@ -128,7 +127,7 @@ class VehicleRepository:
     def get_years_by_model(self, model_id: int) -> List[int]:
         results = self.db.query(Vehicle.year).filter(
             Vehicle.model_id == model_id,
-            Vehicle.is_active == True
+            Vehicle.is_active
         ).distinct().all()
         return [r[0] for r in results]
 
@@ -136,5 +135,5 @@ class VehicleRepository:
         return self.db.query(Vehicle).filter(
             Vehicle.model_id == model_id,
             Vehicle.year == year,
-            Vehicle.is_active == True
+            Vehicle.is_active
         ).all()

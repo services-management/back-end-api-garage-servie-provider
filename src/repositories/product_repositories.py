@@ -73,6 +73,52 @@ class ProductRepository(BaseRepository[Product]):
         )
         return list(self.db.execute(stmt).scalars().all())
 
+    def filter_by_vehicle(
+        self,
+        make_name: str,
+        model_name: str,
+        year: int,
+        vehicle_type: Optional[Any] = None,
+        fuel_type: Optional[Any] = None,
+        drive_type: Optional[Any] = None,
+        transmission: Optional[Any] = None,
+        skip: int = 0,
+        limit: int = 100
+    ) -> List[Product]:
+        from src.schemas.vehicle import Make, Model, Vehicle
+        from src.schemas.product import ProductVehicleCompatibility
+        
+        stmt = (
+            select(Product)
+            .join(ProductVehicleCompatibility, Product.product_id == ProductVehicleCompatibility.product_id)
+            .join(Vehicle, ProductVehicleCompatibility.vehicle_id == Vehicle.vehicle_id)
+            .join(Model, Vehicle.model_id == Model.id)
+            .join(Make, Model.make_id == Make.id)
+            .where(
+                Make.name == make_name,
+                Model.name == model_name,
+                Vehicle.year == year,
+                Product.status == ProductStatus.ACTIVE
+            )
+        )
+        
+        if vehicle_type:
+            stmt = stmt.where(Vehicle.vehicle_type == vehicle_type)
+        if fuel_type:
+            stmt = stmt.where(Vehicle.fuel_type == fuel_type)
+        if drive_type:
+            stmt = stmt.where(Vehicle.drive_type == drive_type)
+        if transmission:
+            stmt = stmt.where(Vehicle.transmission == transmission)
+            
+        stmt = stmt.options(
+            joinedload(Product.category),
+            joinedload(Product.inventory),
+            joinedload(Product.vehicle_links)
+        ).offset(skip).limit(limit)
+        
+        return list(self.db.execute(stmt).scalars().unique().all())
+
     # --- Create product + auto-create inventory (atomic) ---
     def create(
         self,

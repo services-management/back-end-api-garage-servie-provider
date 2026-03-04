@@ -1,6 +1,5 @@
 # src/controller/vehicle_controller.py
 
-from typing import List, Optional
 from sqlalchemy.orm import Session
 from src.repositories.vehicle_repository import VehicleRepository
 from src.models.vehicle_model import VehicleCreate, Makecreate, Modelcreate

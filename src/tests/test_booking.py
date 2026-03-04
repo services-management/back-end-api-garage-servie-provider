@@ -1,5 +1,4 @@
-import pytest
-from datetime import date, time, timedelta
+from datetime import date, timedelta
 from src.dependency.auth import get_current_customer
 from src.models.user_model import UserResponse
 from uuid import uuid4

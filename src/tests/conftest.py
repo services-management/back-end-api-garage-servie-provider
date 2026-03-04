@@ -1,5 +1,5 @@
-import pytest
 import os
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -8,6 +8,14 @@ from unittest.mock import patch, MagicMock
 
 # 1. Set test mode and mock slow startup logic BEFORE importing the app
 os.environ["TESTING"] = "True"
+
+from src.app.app import app
+from src.config.database import Base, get_db
+from src.schemas.admin import adminModel
+from src.schemas.product import Product, Category, Service, Inventory
+from src.schemas.vehicle import Make, Model, Vehicle, VehicleType, FuelType, DriveType, TransmissionType
+from src.schemas.techincal import TechnicalModel, TechnicalTeam
+from src.schemas.booking import User, UserStatus, Booking, BookingStatus, BookingSource
 
 # We mock the startup events to prevent network calls to Telegram and DB init during tests
 @pytest.fixture(scope="session", autouse=True)
@@ -18,14 +26,6 @@ def mock_app_startup():
         mock_post.return_value = MagicMock(status_code=200)
         mock_post.return_value.json.return_value = {"ok": True}
         yield
-
-from src.app.app import app
-from src.config.database import Base, get_db
-from src.schemas.admin import adminModel
-from src.schemas.product import Product, Category, ProductVehicleCompatibility, Service, Inventory
-from src.schemas.vehicle import Make, Model, Vehicle, VehicleType, FuelType, DriveType, TransmissionType
-from src.schemas.techincal import TechnicalModel, TechnicalTeam
-from src.schemas.booking import User, UserStatus, Booking, BookingStatus, BookingSource, UserVehicle
 
 # 2. Mock slow bcrypt hashing (Huge speedup)
 @pytest.fixture(scope="session", autouse=True)

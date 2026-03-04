@@ -1,5 +1,5 @@
 # src/services/user_service.py
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from uuid import UUID
 from sqlalchemy.orm import Session
 from src.repositories.user_respositories import UserRepository

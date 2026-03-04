@@ -1,4 +1,3 @@
-import pytest
 import uuid
 
 def test_list_admins_success(authenticated_admin_client):

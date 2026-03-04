@@ -6,7 +6,7 @@ from src.config.database import get_db
 from src.repositories.vehicle_repository import VehicleRepository
 from src.controller.vehicle_controller import Vehiclecontroller
 from src.models.vehicle_model import (
-    VehicleCreate, MakeBase, ModelBase, VehicleUpdate, VehicleBase, 
+    VehicleCreate, MakeBase, ModelBase, VehicleBase, 
     Modelupdate, Makeupdate, Makecreate, Modelcreate
 )
 from src.models.admin_model import AdminOut

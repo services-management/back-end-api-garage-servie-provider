@@ -1,11 +1,7 @@
-import pytest
-from fastapi import status
-from decimal import Decimal
 from datetime import date, timedelta, time
 
 def test_product_soft_delete_flow(authenticated_admin_client, test_product):
     """Verify that deleting a product marks it as Deleted and hides it from public."""
-    from src.schemas.product import ProductStatus
     p_id = test_product.product_id
     
     # 1. Check it exists in public list
@@ -50,7 +46,6 @@ def test_product_vehicle_link_with_quantity_payload(authenticated_admin_client, 
 def test_booking_auto_rejection_logic(authenticated_admin_client, db_session, test_service):
     """Verify that the 11th booking is tagged as overbooked."""
     from src.schemas.booking import Booking, User
-    from src.schemas.product import Product, Inventory
     from src.core.enums import BookingSource, UserStatus
     
     # Clean previous test state

@@ -1,4 +1,4 @@
-from typing import List # Ensure List and Optional are imported here
+from typing import List, Optional # Ensure List and Optional are imported here
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -8,9 +8,10 @@ from src.config.database import get_db
 from src.controller.product_controller import ProductController
 from src.dependency.auth import get_current_admin_user, get_optional_user
 from src.models.product_model import (  # Adjusted import path
-    ProductCreate, ProductResponse, ProductUpdate)
+    ProductCreate, ProductResponse, ProductUpdate, ProductOut)
 from src.repositories.product_vehicle_repository import ProductVehicleRepository
 from src.service.s3_service import S3Service
+from src.core.enums import TransmissionType, FuelType, DriveType, VehicleType
 # from src.models.vehicle_model import VehicleFilter
 
 
@@ -156,6 +157,34 @@ def list_products_active(
     svc = ProductController(db) 
     return svc.list_product_active(skip=skip, limit=limit)
 
+@router.get("/filter-by-vehicle", response_model=List[ProductOut])
+def filter_products_by_vehicle(
+    make: str = Query(..., min_length=1),
+    model: str = Query(..., min_length=1),
+    year: int = Query(..., ge=1900, le=2100),
+    vehicle_type: Optional[VehicleType] = Query(None),
+    fuel_type: Optional[FuelType] = Query(None),
+    drive_type: Optional[DriveType] = Query(None),
+    transmission: Optional[TransmissionType] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_optional_user)
+):
+    """Search for products compatible with a specific vehicle."""
+    svc = ProductController(db)
+    return svc.filter_products_by_vehicle(
+        make_name=make,
+        model_name=model,
+        year=year,
+        vehicle_type=vehicle_type,
+        fuel_type=fuel_type,
+        drive_type=drive_type,
+        transmission=transmission,
+        skip=skip,
+        limit=limit
+    )
+
 @router.get("/{product_id}", 
             response_model= ProductResponse)
 def get_product(
@@ -231,11 +260,23 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
 def link_product_to_vehicle(
     product_id: int,
     vehicle_id: int,
+    quantity_required: Optional[str] = Query(None),
+    unit: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     """Link a product to a vehicle."""
     repo = ProductVehicleRepository(db)
-    link = repo.link_product_to_vehicle(product_id=product_id, vehicle_id=vehicle_id)
+    # If unit is provided, we can append it to quantity or note. 
+    # The tests pass quantity_required=1 and unit='unit'.
+    full_qty = quantity_required
+    if quantity_required and unit:
+        full_qty = f"{quantity_required} {unit}"
+    
+    link = repo.link_product_to_vehicle(
+        product_id=product_id, 
+        vehicle_id=vehicle_id,
+        quantity_required=full_qty
+    )
     if not link:
         raise HTTPException(status_code=404, detail="Product or Vehicle not found")
     return {"message": "Product linked to vehicle successfully"}

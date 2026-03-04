@@ -15,8 +15,7 @@ from src.dependency.auth import get_current_admin_user
 # Your Schemas (Pydantic Models for input/output)
 from src.models.admin_model import (AdminCreate, AdminLogin, AdminOut,
                                     AdminUpdate, InvoiceUpload)
-from src.models.booking_model import (AdminBookingCreate, BookingCreate,
-                                    BookingHistoryResponse)
+from src.models.booking_model import (AdminBookingCreate, BookingHistoryResponse)
 from src.models.technical_model import (  # Assuming you have a TechnicalOut
     TechnicalCreate, TechnicalOut)
 from src.models.booking_model import BookingStatus

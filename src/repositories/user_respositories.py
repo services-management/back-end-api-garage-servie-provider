@@ -1,11 +1,9 @@
 import logging
-import uuid
-from datetime import date, datetime, time
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import func, or_
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from src.schemas.booking import User, UserStatus, Booking, BookingStatus, UserVehicle
 

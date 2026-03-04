@@ -1,6 +1,5 @@
 import pytest
-from src.schemas.vehicle import Make, Model, Vehicle
-from src.core.enums import VehicleType, FuelType, DriveType, TransmissionType
+from src.schemas.vehicle import Make, Model
 
 @pytest.fixture
 def test_make(db_session):

@@ -1,7 +1,6 @@
 import pytest
 from datetime import date, time
 from uuid import uuid4
-from src.core.enums import ServiceType
 from src.schemas.booking import BookingStatus, BookingSource
 
 @pytest.fixture

@@ -1,6 +1,4 @@
 import pytest
-from uuid import uuid4
-from datetime import datetime, timezone
 from src.dependency.auth import get_current_customer
 from src.models.user_model import UserResponse
 from src.schemas.booking import User, UserStatus
@@ -28,7 +26,6 @@ def auth_customer_client(client, customer_token, test_customer):
     def override_get_current_customer():
         return UserResponse.model_validate(test_customer)
     
-    from src.dependency.auth import get_current_customer
     client.app.dependency_overrides[get_current_customer] = override_get_current_customer
     client.headers["Authorization"] = f"Bearer {customer_token}"
     yield client

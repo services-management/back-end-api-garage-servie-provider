@@ -1,5 +1,3 @@
-import pytest
-from decimal import Decimal
 
 def test_get_inventory_success(authenticated_admin_client, test_product):
     """Test fetching inventory for a product."""

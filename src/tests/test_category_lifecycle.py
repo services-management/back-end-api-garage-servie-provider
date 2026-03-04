@@ -1,4 +1,3 @@
-import pytest
 
 def test_category_lifecycle(authenticated_admin_client):
     # 1. Create
