@@ -12,10 +12,17 @@ from src.models.vehicle_model import VehicleBase
 class ProductBase(BaseModel):
     name: str = Field(..., min_length=1, example="Brake Pad", description="Unique name of the product/part.")
     selling_price: Decimal = Field(..., gt=Decimal("0"), example=Decimal("19.99"), description="Price charged to the customer.")
+    price_adjustment: Decimal = Field(Decimal("0.00"), description="Optional price adjustment for specific vehicle fitments.")
     unit_cost: Optional[Decimal] = Field(None, ge=Decimal("0"), example=Decimal("12.50"), description="Internal cost of the product.")
-    description :str = Field(None,max_length=255)
-    image_url :str = Field(None,description="image of the product")
+    description :Optional[str] = Field(None,max_length=255)
+    image_url :Optional[str] = Field(None,description="image of the product")
     status: ProductStatus = Field(default=ProductStatus.ACTIVE, example="Active")
+    
+    model_config = ConfigDict(
+        from_attributes=True,
+        use_enum_values=True
+    )
+
     @validator("name")
     def name_not_blank(cls, v: str) -> str:
         if not v.strip():
@@ -29,14 +36,8 @@ class ProductBase(BaseModel):
             return Decimal(str(v))
         return v
 
-    class Config:
-        from_attributes = True
-        use_enum_values = True
-
 # Input Schema for creating a Product (POST)
 class ProductCreate(ProductBase):
-    # If category_id must be present, make it non-optional here:
-    # category_id: int = Field(..., example=1, description="Required category ID")
     category_name: Optional[str] = Field(None, example="Oil", description="Name of the category this product belongs to.")
     initial_stock: Decimal = Field(Decimal("0.0"), ge=Decimal("0"), example=Decimal("50.0"),
                                    description="Starting quantity for the inventory.")
@@ -51,7 +52,6 @@ class ProductCreate(ProductBase):
 
     @validator("unit_cost", always=True)
     def cost_not_exceed_price(cls, v, values):
-        # Optional business rule: unit_cost should not exceed selling_price
         sp = values.get("selling_price")
         if v is not None and sp is not None and v > sp:
             raise ValueError("Unit cost cannot exceed selling price.")
@@ -60,7 +60,6 @@ class ProductCreate(ProductBase):
 
 # Input Schema for updating a Product (PUT/PATCH)
 class ProductUpdate(BaseModel):
-    # All fields optional for partial updates
     name: Optional[str] = Field(None, min_length=1, example="Brake Pad - Premium")
     selling_price: Optional[Decimal] = Field(None, gt=Decimal("0"), example=Decimal("21.99"))
     unit_cost: Optional[Decimal] = Field(None, ge=Decimal("0"), example=Decimal("13.00"))
@@ -68,6 +67,11 @@ class ProductUpdate(BaseModel):
     category_name: Optional[str] = Field(None, example="oil")
     image_url: Optional[str] = Field(None)
     status: Optional[ProductStatus] = None
+
+    model_config = ConfigDict(
+        use_enum_values=True
+    )
+
     @validator("name")
     def name_not_blank(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and not v.strip():
@@ -83,23 +87,21 @@ class ProductUpdate(BaseModel):
     @validator("unit_cost")
     def cost_not_exceed_price_on_update(cls, v, values):
         sp = values.get("selling_price")
-        # Only validate if both are provided in the same update payload
         if v is not None and sp is not None and v > sp:
             raise ValueError("Unit cost cannot exceed selling price.")
         return v
-    class Config:
-        use_enum_values = True
 
 # Output Schema for API responses
 class ProductResponse(ProductBase):
     product_id: int = Field(..., example=123)
     category_id: Optional[int] = Field(None,example=1)
-    # Nested relationships: The ORM can populate these
     category: Optional[CategoryResponse] = None
     inventory: Optional[InventorySnapshot] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+        from_attributes=True,
+        use_enum_values=True
+    )
 
 class ProductVehicleLink(BaseModel):
     product_id: int

@@ -53,6 +53,10 @@ class AdminRepository:
         # Use the explicit column name "Email_phone" if needed due to PostgreSQL case sensitivity
         return self.db.query(adminModel).filter(adminModel.email_phone == contact_info).first()
 
+    def get_multi(self, skip: int = 0, limit: int = 100) -> list[adminModel]:
+        """Get multiple admin accounts with pagination."""
+        return self.db.query(adminModel).offset(skip).limit(limit).all()
+
     def create(self, username: AdminCreate, hashed_password:str ) -> adminModel:
         """Create a new user with hashed password."""
         db_admin = adminModel(

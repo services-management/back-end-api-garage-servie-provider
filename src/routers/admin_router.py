@@ -1,4 +1,4 @@
-
+from uuid import UUID  # Correct type for IDs
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -15,7 +15,7 @@ from src.dependency.auth import get_current_admin_user
 # Your Schemas (Pydantic Models for input/output)
 from src.models.admin_model import (AdminCreate, AdminLogin, AdminOut,
                                     AdminUpdate, InvoiceUpload)
-from src.models.booking_model import BookingCreate, BookingHistoryResponse
+from src.models.booking_model import (AdminBookingCreate, BookingHistoryResponse)
 from src.models.technical_model import (  # Assuming you have a TechnicalOut
     TechnicalCreate, TechnicalOut)
 from src.models.booking_model import BookingStatus
@@ -183,7 +183,7 @@ async def reject(
 
 @router.post("/bookings", response_model=BookingHistoryResponse, status_code=status.HTTP_201_CREATED, summary="Create a Booking for a Customer")
 async def create_booking_for_customer(
-    booking_data: BookingCreate,
+    booking_data: AdminBookingCreate,
     service: AdminController = Depends(get_admin_controller),
     current_admin: AdminOut = Depends(get_current_admin_user)
 ):
@@ -217,3 +217,45 @@ async def assign(
 ):
     """Assign a specific technical team to a car"""
     return await service.assign_team(booking_id, payload.technical_team_id)
+
+## 4. Account Management Endpoints (Admin Function)
+
+@router.get("/accounts/admins", response_model=List[AdminOut], summary="List all Admin accounts")
+async def list_admins(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    controller: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """Retrieves a list of all Admin accounts."""
+    return controller.get_all_admins(skip=skip, limit=limit)
+
+@router.get("/accounts/technicals", response_model=List[TechnicalOut], summary="List all Technical accounts")
+async def list_technicals(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    controller: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """Retrieves a list of all Technical accounts."""
+    return controller.get_all_technicals(skip=skip, limit=limit)
+
+@router.put("/accounts/admins/{admin_id}/deactivate", response_model=AdminOut, summary="Deactivate an Admin account")
+async def deactivate_admin_acc(
+    admin_id: UUID,
+    controller: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """Deactivates an Admin account by setting is_active to False."""
+    if current_admin.admin_id == admin_id:
+        raise HTTPException(status_code=400, detail="Cannot deactivate your own account.")
+    return controller.deactivate_admin(admin_id)
+
+@router.put("/accounts/technicals/{technical_id}/deactivate", response_model=TechnicalOut, summary="Deactivate a Technical account")
+async def deactivate_technical_acc(
+    technical_id: UUID,
+    controller: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """Deactivates a Technical account by setting is_active to False."""
+    return controller.deactivate_technical(technical_id)

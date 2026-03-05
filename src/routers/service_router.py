@@ -9,8 +9,10 @@ from src.controller.service_controller import ServiceController
 from src.dependency.auth import (get_current_admin_user,
                                  get_optional_user)
 from src.models.service_model import (ServiceCreate, ServiceResponse,
-                                      ServiceUpdate)
+                                      ServiceUpdate, ServiceEstimateResponse)
 from src.service.s3_service import S3Service
+from src.core.enums import ServiceType
+
 
 router = APIRouter(
     prefix="/service",
@@ -32,7 +34,8 @@ def create_service(payload: ServiceCreate, db: Session = Depends(get_db)):
             name=payload.name,
             description=payload.description,
             image_url=payload.image_url,
-            price=payload.price,
+            garage_price=payload.garage_price,
+            home_price=payload.home_price,
             duration_minutes=payload.duration_minutes,
             is_available=payload.is_available,
             associations=[a.dict() for a in payload.associations] if payload.associations else []
@@ -40,6 +43,77 @@ def create_service(payload: ServiceCreate, db: Session = Depends(get_db)):
         return service
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# @router.get("/filter-by-vehicle", response_model=List[ServiceResponse])
+# def filter_services_by_vehicle(
+#     make: str = Query(..., min_length=1),
+#     model: str = Query(..., min_length=1),
+#     year: int = Query(..., ge=1900, le=2100),
+#     engine: Optional[str] = Query(None, min_length=1),
+#     vehicle_type: Optional[VehicleType] = Query(None),
+#     fuel_type: Optional[FuelType] = Query(None),
+#     drive_type: Optional[DriveType] = Query(None),
+#     transmission: Optional[TransmissionType] = Query(None),
+#     skip: int = Query(0, ge=0),
+#     limit: int = Query(100, ge=1, le=1000),
+#     db: Session = Depends(get_db),
+#     current_user = Depends(get_optional_user)
+# ):
+#     """Search for services compatible with a specific vehicle."""
+#     svc = ServiceController(db)
+#     return svc.filter_services_by_vehicle(
+#         make_name=make,
+#         model_name=model,
+#         year=year,
+#         engine=engine,
+#         vehicle_type=vehicle_type,
+#         fuel_type=fuel_type,
+#         drive_type=drive_type,
+#         transmission=transmission,
+#         skip=skip,
+#         limit=limit
+#     )
+
+
+@router.get("/estimate-prices", response_model=List[ServiceEstimateResponse])
+def get_service_price_estimates(
+    vehicle_id: int = Query(..., description="The ID of the car configuration"),
+    service_type: ServiceType = Query(..., description="Home or Garage service"),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_optional_user)
+):
+    """
+    Get dynamic price estimates for services based on a specific car.
+    Matches products and calculates total cost (Labor + Parts).
+    """
+    svc = ServiceController(db)
+    return svc.get_service_estimates(vehicle_id, service_type)
+
+
+# @router.get("/catalog", response_model=List[ServiceEstimateResponse])
+# def get_service_catalog(
+#     model_id: int = Query(...),
+#     year: int = Query(...),
+#     engine: str = Query(...),
+#     service_type: ServiceType = Query(...),
+#     db: Session = Depends(get_db),
+#     current_user = Depends(get_optional_user)
+# ):
+#     """
+#     User-friendly catalog endpoint. 
+#     Input car details and get back a list of services with calculated prices.
+#     """
+#     svc = ServiceController(db)
+#     try:
+#         return svc.get_catalog_for_vehicle(
+#             model_id=model_id,
+#             year=year,
+#             engine=engine,
+#             service_type=service_type
+#         )
+#     except ValueError as e:
+#         raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get(
@@ -103,7 +177,8 @@ def update_service(
             name=payload.name,
             description=payload.description,
             image_url=payload.image_url,
-            price=payload.price,
+            garage_price=payload.garage_price,
+            home_price=payload.home_price,
             duration_minutes=payload.duration_minutes,
             is_available=payload.is_available,
             associations=[a.dict() for a in payload.associations] if payload.associations is not None else None
@@ -207,6 +282,40 @@ def update_service_image(
         return {"service_id": service_id, "image_url": image_url, "service": updated, "message": "Service image updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating image: {str(e)}")
+
+
+# @router.post("/{service_id}/vehicle/{vehicle_id}",
+#              status_code=201,
+#              dependencies=[Depends(get_current_admin_user)])
+# def link_service_to_vehicle(
+#     service_id: int,
+#     vehicle_id: int,
+#     note: Optional[str] = Query(None),
+#     db: Session = Depends(get_db)
+# ):
+#     """Link a service to a vehicle configuration."""
+#     from src.schemas.product import ServiceVehicleCompatibility
+    
+#     # Check if link already exists
+#     existing = db.query(ServiceVehicleCompatibility).filter_by(
+#         service_id=service_id, 
+#         vehicle_id=vehicle_id
+#     ).first()
+    
+#     if existing:
+#         if note:
+#             existing.note = note
+#             db.commit()
+#         return {"message": "Service already linked to vehicle"}
+
+#     new_link = ServiceVehicleCompatibility(
+#         service_id=service_id,
+#         vehicle_id=vehicle_id,
+#         note=note
+#     )
+#     db.add(new_link)
+#     db.commit()
+#     return {"message": "Service linked to vehicle successfully"}
 
 
 @router.delete(

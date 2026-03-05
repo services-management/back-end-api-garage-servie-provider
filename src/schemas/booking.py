@@ -1,4 +1,3 @@
-import enum
 import uuid
 from datetime import datetime
 
@@ -9,22 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship,backref
 
 from src.config.database import Base
-
-
-# 1. Define the Booking Statuses
-class BookingStatus(str, enum.Enum):
-    PENDING = "Pending"     # Initial state when user requests
-    CONFIRMED = "Confirmed" # Admin has approved
-    CANCELLED = "Cancelled" # User or Admin cancelled
-    REJECTED = "Rejected"   # Admin denied the request
-    COMPLETED = "Completed" # Service is finished
-class BookingSource(str, enum.Enum):
-    WEB = "Web"
-    PHONE = "Phone"
-
-class UserStatus(str, enum.Enum):
-    GUEST = "Guest"
-    ACTIVE = "Active"
+from src.core.enums import BookingStatus, BookingSource, UserStatus, ServiceType
 
 
 class User(Base):
@@ -67,13 +51,19 @@ class Booking(Base):
     processed_by = Column(UUID(as_uuid=True), ForeignKey("admin.admin_id"), nullable=True)
     technical_team_id = Column(UUID(as_uuid=True), ForeignKey("technical_team.team_id"), nullable=True)
     # NEW: Requirement - provide car details
+    vehicle_id = Column(Integer, ForeignKey("vehicles.vehicle_id"), nullable=True)
     car_make = Column(String(50), nullable=False)   # e.g., "Toyota"
     car_model = Column(String(50), nullable=False)  # e.g., "Camry"
+    car_year = Column(Integer, nullable=True)       # e.g., 2023
+    car_engine = Column(String(50), nullable=True)  # e.g., "2.5L Hybrid"
 
     # NEW: Requirement - share location and phone number
     service_location = Column(Text, nullable=False) # Address or Coordinates
     contact_phone = Column(String(20), nullable=False)
     note = Column(String(255),nullable=True)
+    internal_note = Column(Text, nullable=True)
+    assigned_garage_id = Column(UUID(as_uuid=True), nullable=True)
+    technician_id = Column(UUID(as_uuid=True), nullable=True)
     # Status & Source
     status = Column(
         SQLEnum(BookingStatus, name="booking_status"),
@@ -88,6 +78,7 @@ class Booking(Base):
     # Schedule
     appointment_date = Column(Date, nullable=False)
     start_time = Column(Time, nullable=False)
+    service_mode = Column(SQLEnum(ServiceType, native_enum=False), nullable=False, default=ServiceType.GARAGE)
     
     # 7. PAYMENT (essential)
     payment_status = Column(String, default="pending", nullable=False)
@@ -148,3 +139,18 @@ class MaintenanceAlert(Base):
     is_sent = Column(Boolean, default=False)
     user = relationship("User", backref="alerts")
     booking = relationship("Booking", backref="alerts")
+
+class UserVehicle(Base):
+    """Stores car details saved by a user in their profile."""
+    __tablename__ = "user_vehicles"
+
+    vehicle_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
+    car_make = Column(String(50), nullable=False)
+    car_model = Column(String(50), nullable=False)
+    car_year = Column(Integer, nullable=True)
+    car_engine = Column(String(50), nullable=True)
+    license_plate = Column(String(20), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    user = relationship("User", backref="saved_vehicles")

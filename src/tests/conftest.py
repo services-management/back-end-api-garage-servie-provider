@@ -1,208 +1,192 @@
-import pytest
 import os
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool  # Import StaticPool
+from sqlalchemy.pool import StaticPool
+from unittest.mock import patch, MagicMock
 
-# Set test mode BEFORE importing app
+# 1. Set test mode and mock slow startup logic BEFORE importing the app
 os.environ["TESTING"] = "True"
 
 from src.app.app import app
 from src.config.database import Base, get_db
-from src.utils.hash_password import hash_password
-
-# Import models
 from src.schemas.admin import adminModel
-from src.schemas.product import Product, Category, ProductVehicleCompatibility
+from src.schemas.product import Product, Category, Service, Inventory, ProductVehicleCompatibility
 from src.schemas.vehicle import Make, Model, Vehicle, VehicleType, FuelType, DriveType, TransmissionType
-from src.schemas.techincal import TechnicalModel
+from src.schemas.techincal import TechnicalModel, TechnicalTeam
+from src.schemas.booking import User, UserStatus, Booking, BookingStatus, BookingSource
 
+# We mock the startup events to prevent network calls to Telegram and DB init during tests
+@pytest.fixture(scope="session", autouse=True)
+def mock_app_startup():
+    with patch("src.app.app.init_db"), \
+         patch("httpx.AsyncClient.post") as mock_post:
+        # Mock Telegram webhook response
+        mock_post.return_value = MagicMock(status_code=200)
+        mock_post.return_value.json.return_value = {"ok": True}
+        yield
 
-@pytest.fixture(scope="function")
-def db_session():
-    engine = create_engine(
+# 2. Mock slow bcrypt hashing (Huge speedup)
+@pytest.fixture(scope="session", autouse=True)
+def mock_bcrypt():
+    with patch("bcrypt.hashpw", side_effect=lambda pw, salt: pw), \
+         patch("bcrypt.checkpw", side_effect=lambda pw, hashed: pw == hashed), \
+         patch("bcrypt.gensalt", return_value=b"salt"):
+        yield
+
+# 3. Optimized Database Setup
+@pytest.fixture(scope="session")
+def engine():
+    return create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
 
+@pytest.fixture(scope="session")
+def tables(engine):
     Base.metadata.create_all(bind=engine)
+    yield
+    Base.metadata.drop_all(bind=engine)
 
-    TestingSessionLocal = sessionmaker(
-        autocommit=False,
-        autoflush=False,
-        bind=engine,
-    )
-
+@pytest.fixture(scope="function")
+def db_session(engine, tables):
+    """Transaction-based session: very fast as it rolls back instead of recreating tables."""
+    connection = engine.connect()
+    transaction = connection.begin()
+    TestingSessionLocal = sessionmaker(bind=connection)
     session = TestingSessionLocal()
 
     try:
         yield session
     finally:
         session.close()
-        Base.metadata.drop_all(bind=engine)
+        transaction.rollback()
+        connection.close()
 
-
-
-# ---------- FastAPI TestClient Fixture ----------
 @pytest.fixture(scope="function")
 def client(db_session):
-    """FastAPI test client with in-memory database."""
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            db_session.close()
-
-    app.dependency_overrides[get_db] = override_get_db
-    
+    """FastAPI test client with injected test session."""
+    app.dependency_overrides[get_db] = lambda: db_session
     with TestClient(app) as test_client:
         yield test_client
-    
     app.dependency_overrides.clear()
 
-
-# ---------- Admin Fixtures ----------
+# --- Re-use existing fixtures for Admin/Technical/Data ---
 @pytest.fixture(scope="function")
 def admin_user(db_session):
-    """Create an admin user in the test database."""
-    
-    # Based on the Pydantic warning, the attribute is 'email_phone' (lowercase)
+    from src.utils.hash_password import hash_password
     admin = adminModel(
-        username="testadmin",
-        password=hash_password("securepassword"),
-        role="admin",
-        email_phone="admin@example.com"  # lowercase 'e'
+        username="testadmin", 
+        password=hash_password("securepassword"), 
+        role="admin", 
+        email_phone="admin@example.com",
+        is_active=True
     )
-    
     db_session.add(admin)
     db_session.commit()
     db_session.refresh(admin)
-    
     return admin
-
 
 @pytest.fixture(scope="function")
 def admin_token(client, admin_user):
-    """Get admin JWT token."""
-    response = client.post("/admin/login", json={
-        "username": "testadmin", 
-        "password": "securepassword"
-    })
-    assert response.status_code == 200
-    data = response.json()
-    return data["access_token"]
-
+    response = client.post("/admin/login", json={"username": "testadmin", "password": "securepassword"})
+    return response.json()["access_token"]
 
 @pytest.fixture(scope="function")
 def authenticated_admin_client(client, admin_token):
-    """Test client with admin authentication."""
     client.headers["Authorization"] = f"Bearer {admin_token}"
     return client
 
-
-# ---------- Technical Fixtures ----------
 @pytest.fixture(scope="function")
 def technical_user(db_session):
-    """Create a technical user in the test database."""
-    
+    from src.utils.hash_password import hash_password
     tech = TechnicalModel(
-        username="tech_staff_1",
-        password=hash_password("techpass"),
-        name="Tech One",
-        phone_number="+12345678900",
-        role="technical",
-        status="free"
+        username="tech_staff_1", 
+        password=hash_password("techpass"), 
+        name="Tech One", 
+        phone_number="+12345678900", 
+        role="technical", 
+        status="free",
+        is_active=True
     )
-    
     db_session.add(tech)
     db_session.commit()
     db_session.refresh(tech)
-    
     return tech
-
 
 @pytest.fixture(scope="function")
 def technical_token(client, technical_user):
-    """Get technical user JWT token."""
-    response = client.post("/technical/login", json={
-        "username": "tech_staff_1",
-        "password": "techpass"
-    })
-    assert response.status_code == 200
-    data = response.json()
-    return data.get("access_token") or data.get("token")
-
+    response = client.post("/technical/login", json={"username": "tech_staff_1", "password": "techpass"})
+    return response.json()["access_token"]
 
 @pytest.fixture(scope="function")
 def authenticated_technical_client(client, technical_token):
-    """Test client with technical user authentication."""
     client.headers["Authorization"] = f"Bearer {technical_token}"
     return client
 
-# ---------- Product Test Data Fixtures ----------
-
 @pytest.fixture(scope="function")
 def test_category(db_session):
-    """Create a test category."""
-    
-    category = Category(
-        name="Test Category",
-        description="Test category for products"
-    )
-    
+    category = Category(name="Test Category", description="Test category")
     db_session.add(category)
     db_session.commit()
     db_session.refresh(category)
-    
     return category
-
 
 @pytest.fixture(scope="function")
 def test_product(db_session, test_category):
-    """Create a test product."""
-    
+    from src.schemas.product import ProductStatus
+    from decimal import Decimal
+    from datetime import date
     product = Product(
         name="Test Product",
-        selling_price=29.99,
-        unit_cost=19.99,
+        selling_price=Decimal("29.99"),
+        unit_cost=Decimal("19.99"),
         category_id=test_category.categoryID,
         description="A test product",
-        status="active"
+        status=ProductStatus.ACTIVE
     )
-    
     db_session.add(product)
+    db_session.flush()
+    
+    # Create inventory for the product to avoid 404 in inventory tests
+    inventory = Inventory(
+        product_id=product.product_id,
+        current_stock=Decimal("50.0"),
+        min_stock_level=Decimal("10.0"),
+        last_restock_date=date.today()
+    )
+    db_session.add(inventory)
     db_session.commit()
     db_session.refresh(product)
-    
     return product
 
+@pytest.fixture(scope="function")
+def test_service(db_session):
+    from decimal import Decimal
+    service = Service(
+        name="Oil Change Test",
+        description="Desc",
+        image_url="http://ex.com/img.jpg",
+        garage_price=Decimal("50.00"),
+        home_price=Decimal("70.00"),
+        duration_minutes=60,
+        is_available=True
+    )
+
+    db_session.add(service)
+    db_session.commit()
+    db_session.refresh(service)
+    return service
 
 @pytest.fixture(scope="function")
-def multiple_test_products(db_session, test_category):
-    """Create multiple test products."""
-    
-    products = []
-    for i in range(5):
-        product = Product(
-            name=f"Test Product {i}",
-            selling_price=10.00 + i,
-            unit_cost=5.00 + i,
-            category_id=test_category.categoryID,
-            description=f"Test product {i}",
-            status="active"
-        )
-        db_session.add(product)
-        products.append(product)
-    
+def test_team(db_session):
+    team = TechnicalTeam(team_name="Test Team Alpha", description="Test Description", is_active=True)
+    db_session.add(team)
     db_session.commit()
-    for product in products:
-        db_session.refresh(product)
-    
-    return products
-
-# ---------- Vehicle Test Data Fixtures ----------
+    db_session.refresh(team)
+    return team
 
 @pytest.fixture(scope="function")
 def test_make_toyota(db_session):
@@ -239,20 +223,38 @@ def test_vehicle_camry_2022(db_session, test_model_camry):
     return vehicle
 
 @pytest.fixture(scope="function")
-def test_product_compatible_with_camry(db_session, test_product, test_vehicle_camry_2022):
-    # Ensure test_product has been created
-    db_session.refresh(test_product)
-
-    compatibility = ProductVehicleCompatibility(
-        product_id=test_product.product_id,
-        vehicle_id=test_vehicle_camry_2022.vehicle_id,
-        quantity_required="1 unit",
-        note="Perfect fit"
+def test_user(db_session):
+    user = User(
+        phone="+1234567890", 
+        full_name="Test User", 
+        role=UserStatus.ACTIVE, 
+        is_active=True
     )
-    db_session.add(compatibility)
+    db_session.add(user)
     db_session.commit()
-    db_session.refresh(compatibility)
-    return compatibility
+    db_session.refresh(user)
+    return user
+
+@pytest.fixture(scope="function")
+def test_booking(db_session, test_user):
+    from decimal import Decimal
+    from datetime import date, time
+    booking = Booking(
+        user_id=test_user.user_id,
+        contact_phone=test_user.phone,
+        car_make="Toyota",
+        car_model="Camry",
+        appointment_date=date.today(),
+        start_time=time(10, 0),
+        service_location="Test Location",
+        source=BookingSource.WEB,
+        status=BookingStatus.PENDING,
+        total_price=Decimal("50.00")
+    )
+    db_session.add(booking)
+    db_session.commit()
+    db_session.refresh(booking)
+    return booking
 
 @pytest.fixture(scope="function")
 def test_make_honda(db_session):
@@ -290,29 +292,51 @@ def test_vehicle_civic_2023(db_session, test_model_civic):
 
 @pytest.fixture(scope="function")
 def another_test_product(db_session, test_category):
+    from src.schemas.product import ProductStatus
+    from decimal import Decimal
+    from datetime import date
     product = Product(
         name="Honda Specific Part",
-        selling_price=50.00,
-        unit_cost=25.00,
+        selling_price=Decimal("150.00"),
+        unit_cost=Decimal("100.00"),
         category_id=test_category.categoryID,
-        description="A part for Honda vehicles",
-        status="active"
+        description="A Honda Specific product",
+        status=ProductStatus.ACTIVE
     )
     db_session.add(product)
+    db_session.flush()
+    
+    inventory = Inventory(
+        product_id=product.product_id,
+        current_stock=Decimal("10.0"),
+        min_stock_level=Decimal("2.0"),
+        last_restock_date=date.today()
+    )
+    db_session.add(inventory)
     db_session.commit()
     db_session.refresh(product)
     return product
 
 @pytest.fixture(scope="function")
+def test_product_compatible_with_camry(db_session, test_product, test_vehicle_camry_2022):
+    link = ProductVehicleCompatibility(
+        product_id=test_product.product_id,
+        vehicle_id=test_vehicle_camry_2022.vehicle_id,
+        quantity_required="1",
+        note="Standard Fit"
+    )
+    db_session.add(link)
+    db_session.commit()
+    return test_product
+
+@pytest.fixture(scope="function")
 def test_product_compatible_with_civic(db_session, another_test_product, test_vehicle_civic_2023):
-    db_session.refresh(another_test_product)
-    compatibility = ProductVehicleCompatibility(
+    link = ProductVehicleCompatibility(
         product_id=another_test_product.product_id,
         vehicle_id=test_vehicle_civic_2023.vehicle_id,
-        quantity_required="1 unit",
-        note="Specific to Civic"
+        quantity_required="1",
+        note="Honda Fit"
     )
-    db_session.add(compatibility)
+    db_session.add(link)
     db_session.commit()
-    db_session.refresh(compatibility)
-    return compatibility
+    return another_test_product

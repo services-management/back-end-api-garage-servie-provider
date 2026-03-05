@@ -67,11 +67,68 @@ class ProductRepository(BaseRepository[Product]):
     def list_by_category(self, category_id: int, skip: int = 0, limit: int = 100) -> List[Product]:
         stmt = (
             select(Product)
-            .where(Product.category_id == category_id)
+            .options(
+                joinedload(Product.category),
+                joinedload(Product.inventory)
+            )
+            .where(
+                Product.category_id == category_id,
+                Product.status == ProductStatus.ACTIVE
+            )
             .offset(skip)
             .limit(limit)
         )
-        return list(self.db.execute(stmt).scalars().all())
+        return list(self.db.execute(stmt).scalars().unique().all())
+
+    def filter_by_vehicle(
+        self,
+        make_name: str,
+        model_name: str,
+        year: int,
+        engine: Optional[str] = None,
+        vehicle_type: Optional[Any] = None,
+        fuel_type: Optional[Any] = None,
+        drive_type: Optional[Any] = None,
+        transmission: Optional[Any] = None,
+        skip: int = 0,
+        limit: int = 100
+    ) -> List[Product]:
+        from src.schemas.vehicle import Make, Model, Vehicle
+        from src.schemas.product import ProductVehicleCompatibility
+        
+        stmt = (
+            select(Product)
+            .join(ProductVehicleCompatibility, Product.product_id == ProductVehicleCompatibility.product_id)
+            .join(Vehicle, ProductVehicleCompatibility.vehicle_id == Vehicle.vehicle_id)
+            .join(Model, Vehicle.model_id == Model.id)
+            .join(Make, Model.make_id == Make.id)
+            .where(
+                Make.name == make_name,
+                Model.name == model_name,
+                Vehicle.year == year,
+                Product.status == ProductStatus.ACTIVE
+            )
+        )
+
+        if engine:
+            stmt = stmt.where(Vehicle.engine == engine)
+        
+        if vehicle_type:
+            stmt = stmt.where(Vehicle.vehicle_type == vehicle_type)
+        if fuel_type:
+            stmt = stmt.where(Vehicle.fuel_type == fuel_type)
+        if drive_type:
+            stmt = stmt.where(Vehicle.drive_type == drive_type)
+        if transmission:
+            stmt = stmt.where(Vehicle.transmission == transmission)
+            
+        stmt = stmt.options(
+            joinedload(Product.category),
+            joinedload(Product.inventory),
+            joinedload(Product.vehicle_links)
+        ).offset(skip).limit(limit)
+        
+        return list(self.db.execute(stmt).scalars().unique().all())
 
     # --- Create product + auto-create inventory (atomic) ---
     def create(
@@ -177,11 +234,11 @@ class ProductRepository(BaseRepository[Product]):
 
     # --- soft delete product ---
     def delete(self, product_id: int) -> bool:
-        # Delete inventory first (inventory PK == product_id)
-        stmt =  self.db.get(Product, product_id)
-        if not stmt:
+        product = self.db.get(Product, product_id)
+        if not product:
             return False
         
-        update_product = self.update(product_id=product_id,status=ProductStatus.INACTIVE)
+        # Soft delete by setting status to DELETED
+        update_product = self.update(product_id=product_id, status=ProductStatus.DELETED)
 
         return update_product is not None

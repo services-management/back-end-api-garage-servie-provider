@@ -25,6 +25,7 @@ class ProductController:
         make_name: str,
         model_name: str,
         year: int,
+        engine: Optional[str] = None,
         vehicle_type: Optional[VehicleType] = None,
         fuel_type: Optional[FuelType] = None,
         drive_type: Optional[DriveType] = None,
@@ -39,6 +40,7 @@ class ProductController:
             make_name=make_name,
             model_name=model_name,
             year=year,
+            engine=engine,
             vehicle_type=vehicle_type,
             fuel_type=fuel_type,
             drive_type=drive_type,
@@ -46,6 +48,7 @@ class ProductController:
             skip=skip,
             limit=limit
         )
+
 
     def create_product(
         self,

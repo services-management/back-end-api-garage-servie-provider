@@ -82,43 +82,47 @@ class BookingService:
             # 4. Notification Branching Logic
             magic_link = f"https://t.me/{settings.TELEGRAM_BOT_USERNAME}?start={user.user_id}"
 
-            try:
-                chat_id_val = int(user.telegram_chat_id) if user.telegram_chat_id else 0
-            except (ValueError, TypeError):
-                chat_id_val = 0
+            # Check if user has a valid Telegram chat ID linked
+            has_telegram = False
+            if user.telegram_chat_id:
+                try:
+                    chat_id_val = int(user.telegram_chat_id)
+                    if chat_id_val != 0:
+                        has_telegram = True
+                except (ValueError, TypeError):
+                    has_telegram = False
                 
-            if is_new_user or chat_id_val == 0:
-                # Scenario A: New User / No Telegram Linked
-                # We can't send a Telegram message yet, so we return the link for SMS or Frontend
-                return{
+            if not has_telegram:
+                # Scenario A: User / No Telegram Linked
+                return {
                     "booking": booking,
                     "is_new_user": is_new_user,
                     "telegram_link": magic_link
                 }
-               
             else:
                 # Scenario B: Existing User with Telegram linked
                 msg = (
-                    f"*Booking Received!*\n\n"
-                    f"Hello {user.full_name}, we've received your request for a {booking.car_make}.\n"
-                    f"Status: ⏳ *Pending Approval*\n"
-                    f"Date: {booking.appointment_date}"
+                    f"🔔 <b>Booking Received!</b>\n\n"
+                    f"Hello {user.full_name or 'there'}, we've received your request for a {booking.car_make}.\n"
+                    f"Status: ⏳ <b>Pending Approval</b>\n"
+                    f"Date: {booking.appointment_date}\n"
+                    f"Booking ID: #{booking.booking_id}"
                 )
                 try:
                     await telegram_client.send_message(
-                    chat_id=user.telegram_chat_id, 
-                    text=msg, 
-                    parse_mode="HTML"
-                )
-                    print(f"DEBUG: Push notification sent to {user.telegram_chat_id}")
+                        chat_id=user.telegram_chat_id, 
+                        text=msg, 
+                        parse_mode="HTML"
+                    )
+                    logger.info(f"Push notification sent to customer {user.telegram_chat_id}")
                 except Exception as e:
-                    logger.error(f"❌ Failed to send user notification: {e}")
+                    logger.error(f"❌ Failed to send customer notification: {e}")
 
-            return {
-                "booking": booking,
-                "is_new_user": False,
-                "telegram_link": None
-            }
+                return {
+                    "booking": booking,
+                    "is_new_user": False,
+                    "telegram_link": None
+                }
         except ValueError as ve:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(ve))
         except Exception as e:

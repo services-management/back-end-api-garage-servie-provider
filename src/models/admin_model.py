@@ -39,6 +39,8 @@ class AdminOut(BaseModel):
    username : str
    email_phone : Optional[str]
    role: str
+   is_active: bool
+   telegram_magic_link: Optional[str] = None
    class Config:
         from_attributes = True
 
@@ -48,6 +50,7 @@ class AdminUpdate(BaseModel):
     username: Optional[str] = Field(None, min_length=4, max_length=50)
     password: Optional[str] = Field(None, min_length=8)
     email_phone: Optional[str] = None
+    is_active: Optional[bool] = None
 
 # Schema for loggin in 
 class AdminLogin(BaseModel):

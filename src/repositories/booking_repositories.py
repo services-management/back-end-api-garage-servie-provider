@@ -7,10 +7,12 @@ from sqlalchemy.orm import Session,joinedload, selectinload
 from sqlalchemy import or_
 from src.schemas.booking import User, Booking, BookingItem, BookingStatus
 from src.models.booking_model import BookingCreate, AdminBookingCreate
-from src.schemas.product import Service,Product, ServiceProductAssociation
+from src.schemas.product import Service, Product, ServiceCategoryAssociation, ProductVehicleCompatibility, ProductStatus
+from src.core.enums import ServiceType
 from src.repositories.user_respositories import UserRepository
 from src.repositories.inventory_repositories import InventoryRepository
 from src.schemas.product import Inventory
+import re
 class BookingRepository:
     def __init__(self, db: Session ):
         self.db = db
@@ -24,8 +26,11 @@ class BookingRepository:
         new_booking = Booking(
             user_id=user_id,
             contact_phone=booking_info.contact_phone,
+            vehicle_id=booking_info.vehicle_id,
             car_make=booking_info.car_make,
             car_model=booking_info.car_model,
+            car_year=booking_info.car_year,
+            car_engine=booking_info.car_engine,
             appointment_date=booking_info.appointment_date,
             start_time=booking_info.start_time,
             service_location=booking_info.service_location,
@@ -41,7 +46,12 @@ class BookingRepository:
         self.db.flush()  # Secure the booking_id for foreign keys
 
         # 2. Process items using optimized helper
-        items_to_save, final_total = self._prepare_and_calculate_items(new_booking.booking_id, booking_info.items)
+        items_to_save, final_total = self._prepare_and_calculate_items(
+            new_booking.booking_id, 
+            booking_info.items,
+            new_booking.vehicle_id,
+            booking_info.service_mode
+        )
         
         # 3. Finalize and save
         new_booking.total_price = final_total
@@ -57,7 +67,7 @@ class BookingRepository:
             self.db.rollback()
             raise e
 
-    def _prepare_and_calculate_items(self, booking_id: int, items_in: list) -> tuple[list[BookingItem], Decimal]:
+    def _prepare_and_calculate_items(self, booking_id: int, items_in: list, vehicle_id: Optional[int] = None, service_mode: ServiceType = ServiceType.GARAGE) -> tuple[list[BookingItem], Decimal]:
         prepared_items = []
         total_accumulated_price = Decimal("0.0")
 
@@ -70,7 +80,7 @@ class BookingRepository:
         if service_ids:
             services = (
                 self.db.query(Service)
-                .options(joinedload(Service.associations).joinedload(ServiceProductAssociation.product))
+                .options(joinedload(Service.associations).joinedload(ServiceCategoryAssociation.category))
                 .filter(Service.service_id.in_(service_ids))
                 .all()
             )
@@ -94,23 +104,59 @@ class BookingRepository:
                     raise ValueError(f"Service ID {item_in.service_id} not found.")
                 
                 current_service_id = item_in.service_id
-                unit_price += service.price # Labor
+                # Pricing Logic: Labor based on service mode
+                unit_price += service.home_price if service_mode == ServiceType.HOME else service.garage_price
                 
-                # Add bundled products from associations
-                for assoc in service.associations:
-                    if assoc.product:
-                        unit_price += (assoc.product.selling_price * Decimal(str(assoc.quantity_required)))
-                        total_stock_to_remove = Decimal(str(assoc.quantity_required)) * item_qty
-                        self.deduct_stock_safe(assoc.product_id, total_stock_to_remove)
+                # Add bundled products from categories
+                if vehicle_id:
+                    for assoc in service.associations:
+                        category = assoc.category
+                        # Find compatible product in this category
+                        product_stmt = (
+                            self.db.query(Product)
+                            .join(ProductVehicleCompatibility, Product.product_id == ProductVehicleCompatibility.product_id)
+                            .filter(
+                                Product.category_id == category.categoryID,
+                                ProductVehicleCompatibility.vehicle_id == vehicle_id,
+                                Product.status == ProductStatus.ACTIVE
+                            )
+                        )
+                        product = product_stmt.first()
+                        
+                        if product:
+                            compat = self.db.query(ProductVehicleCompatibility).filter(
+                                ProductVehicleCompatibility.product_id == product.product_id,
+                                ProductVehicleCompatibility.vehicle_id == vehicle_id
+                            ).first()
+                            
+                            p_qty = Decimal("1.0")
+                            if compat and compat.quantity_required:
+                                match = re.search(r"(\d+\.?\d*)", compat.quantity_required)
+                                if match:
+                                    p_qty = Decimal(match.group(1))
+                            
+                            # Pricing Logic: (Selling Price + Price Adjustment) * Qty for Home
+                            base_unit_price = product.selling_price
+                            if service_mode == ServiceType.HOME:
+                                final_prod_price = base_unit_price + product.price_adjustment
+                            else:
+                                final_prod_price = base_unit_price
+                                
+                            unit_price += (final_prod_price * p_qty)
+                            total_stock_to_remove = p_qty * item_qty
+                            self.deduct_stock_safe(product.product_id, total_stock_to_remove)
             # --- BRANCH B: Standalone Product Item ---
-            # We use 'elif' so that if it's already a service, we don't treat it as a standalone product
             elif item_in.product_id and item_in.product_id != 0:
                 product = products_map.get(item_in.product_id)
                 if not product:
                     raise ValueError(f"Product ID {item_in.product_id} not found.")
                 
                 db_product_id = item_in.product_id
-                unit_price = product.selling_price
+                # Pricing Logic for standalone product
+                if service_mode == ServiceType.HOME:
+                    unit_price = product.selling_price + product.price_adjustment
+                else:
+                    unit_price = product.selling_price
                 self.deduct_stock_safe(db_product_id, item_qty)
             # --- BRANCH C: Final Calculation ---
             # Multiplies the UNIT PRICE (bundle or product) by the QUANTITY
@@ -172,17 +218,19 @@ class BookingRepository:
         """
         return self.db.query(Booking).filter(Booking.user_id == user_id).order_by(Booking.appointment_date.desc()).all()    
 
-    def create_admin_booking(self, booking_info:AdminBookingCreate)-> Booking:
+    def create_admin_booking(self, booking_info:AdminBookingCreate, user_id: UUID)-> Booking:
         """
         Create booking by admin with assigned garage
         """
-        user = self.user_repo.get_user_by_phone(booking_info.contact_phone)
         # initialize booking object 
         new_booking = Booking(
-            user_id = user.user_id,
+            user_id = user_id,
             contact_phone=booking_info.contact_phone,
+            vehicle_id=booking_info.vehicle_id,
             car_make=booking_info.car_make,
             car_model=booking_info.car_model,
+            car_year=booking_info.car_year,
+            car_engine=booking_info.car_engine,
             appointment_date=booking_info.appointment_date,
             start_time=booking_info.start_time,
             service_location=booking_info.service_location,
@@ -190,6 +238,8 @@ class BookingRepository:
             source=booking_info.source,
             internal_note=booking_info.internal_note,
             assigned_garage_id=booking_info.assigned_garage_id,
+            technician_id=getattr(booking_info, 'technician_id', None),
+            service_mode=booking_info.service_mode,
             status=BookingStatus.CONFIRMED,
             payment_status="pending",
             amount_paid=Decimal("0.0"),
@@ -202,7 +252,9 @@ class BookingRepository:
         
         items_to_save, final_total = self._prepare_and_calculate_items(
         new_booking.booking_id, 
-        booking_info.items
+        booking_info.items,
+        new_booking.vehicle_id,
+        new_booking.service_mode
     )
     
         new_booking.total_price = final_total

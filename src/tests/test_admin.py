@@ -63,6 +63,8 @@ def test_create_new_admin_success(authenticated_admin_client):
     data = response.json()
     assert data["username"] == "new_test_admin"
     assert data["role"] == "admin"
+    assert "telegram_magic_link" in data
+    assert "admin" in data["telegram_magic_link"]
     assert uuid.UUID(data["admin_id"])
 
 
@@ -132,6 +134,8 @@ def test_provision_technical_account_success(authenticated_admin_client):
     assert data["username"] == "tech_staff_1"
     assert data["role"] == "technical"
     assert data["status"] == "free"
+    assert "telegram_magic_link" in data
+    assert "tech" in data["telegram_magic_link"]
     assert "technical_id" in data
 
 

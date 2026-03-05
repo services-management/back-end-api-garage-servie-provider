@@ -3,6 +3,7 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
+from src.core.enums import ServiceType
 
 from pydantic import BaseModel, Field, validator, model_validator, computed_field
 
@@ -43,16 +44,20 @@ class BookingCreate(BaseModel):
     full_name: Optional[str] = None
     
     # Car Requirements
+    vehicle_id: Optional[int] = Field(None, example=1)
     car_make: str = Field(..., example="Toyota")
     car_model: str = Field(..., example="Camry")
+    car_year: Optional[int] = Field(None, example=2023)
+    car_engine: Optional[str] = Field(None, example="2.5L Hybrid")
     
-    items: List[BookingItemCreate] = Field(..., min_items=1)
+    items: List[BookingItemCreate] = Field(..., min_length=1)
     # Logistics
     appointment_date: date
     start_time: time
     service_location: str # Can be address or GPS string
     note: Optional[str] = None
     source: BookingSource = Field(example= BookingSource.WEB)
+    service_mode: ServiceType = Field(default=ServiceType.GARAGE)
     @validator('appointment_date')
     def date_must_be_future(cls, v):
         if v < date.today():
@@ -99,8 +104,11 @@ class InvoiceResponse(BaseModel):
 
 class BookingHistoryResponse(BaseModel):
     booking_id: int
+    vehicle_id: Optional[int]
     car_make: str
     car_model: str
+    car_year: Optional[int]
+    car_engine: Optional[str]
     appointment_date: date
     start_time: time
     status: str # e.g., "Pending", "Completed"

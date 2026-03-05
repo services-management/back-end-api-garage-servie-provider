@@ -197,3 +197,26 @@ class PhoneValidation(BaseModel):
         if len(digits) < 10:
             raise ValueError('Phone number must have at least 10 digits')
         return v
+
+# --- Customer Vehicle Management Schemas ---
+
+class CustomerVehicleCreate(BaseModel):
+    car_make: str
+    car_model: str
+    car_year: Optional[int] = None
+    car_engine: Optional[str] = None
+    license_plate: Optional[str] = None
+
+class CustomerVehicleUpdate(BaseModel):
+    car_make: Optional[str] = None
+    car_model: Optional[str] = None
+    car_year: Optional[int] = None
+    car_engine: Optional[str] = None
+    license_plate: Optional[str] = None
+
+class CustomerVehicleResponse(CustomerVehicleCreate):
+    vehicle_id: int
+    user_id: UUID
+    
+    class Config:
+        from_attributes = True

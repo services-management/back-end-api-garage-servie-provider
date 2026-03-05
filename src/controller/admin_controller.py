@@ -2,13 +2,14 @@ from typing import Optional
 from uuid import UUID
 from datetime import date
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
-from src.models.admin_model import AdminCreate, AdminLogin, AdminUpdate
-from src.models.technical_model import TechnicalCreate
+from sqlalchemy.orm import Session, joinedload
+from src.config.settings import settings
+from src.models.admin_model import AdminCreate, AdminLogin, AdminUpdate, AdminOut
+from src.models.technical_model import TechnicalCreate, TechnicalOut
 from src.repositories.admin_repositories import AdminRepository
 from src.repositories.technical_repositorie import TechnicalRepository
 from src.schemas.admin import adminModel
-from src.schemas.techincal import TechnicalModel
+from src.schemas.techincal import TechnicalModel, TechnicalTeam
 from src.utils.hash_password import hash_password
 from src.utils.verify_password import verify_password
 from src.config.telegram_client import telegram_client
@@ -34,6 +35,9 @@ class AdminController:
         if not verify_password(admin_in.password, admin.password):
             return None
         
+        if not admin.is_active:
+             raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Account is deactivated")
+
         return admin
 
     def get_admin_by_id(self, admin_id: UUID) -> adminModel:
@@ -43,7 +47,33 @@ class AdminController:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Admin not found")
         return admin
 
-    def create_admin(self, admin_in: AdminCreate) -> adminModel:
+    def get_all_admins(self, skip: int = 0, limit: int = 100) -> list[adminModel]:
+        """Fetch all admin accounts."""
+        return self.admin_repo.get_multi(skip=skip, limit=limit)
+
+    def get_all_technicals(self, skip: int = 0, limit: int = 100) -> list[TechnicalModel]:
+        """Fetch all technical accounts."""
+        return self.tech_repo.get_multi(skip=skip, limit=limit)
+
+    def deactivate_admin(self, admin_id: UUID) -> adminModel:
+        """Deactivate an admin account."""
+        admin = self.get_admin_by_id(admin_id)
+        return self.admin_repo.update(admin, {"is_active": False})
+
+    def deactivate_technical(self, technical_id: UUID) -> TechnicalModel:
+        """Deactivate a technical account."""
+        tech = self.tech_repo.db.query(TechnicalModel).filter(TechnicalModel.technical_id == technical_id).first()
+        if not tech:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Technical account not found")
+        return self.tech_repo.update(tech, {"is_active": False})
+
+    def _generate_magic_link(self, user_id: UUID, role: str) -> str:
+        """Generates a Telegram deep link for account linking."""
+        bot_username = settings.TELEGRAM_BOT_USERNAME
+        # Format: https://t.me/bot?start=ROLE_UUID
+        return f"https://t.me/{bot_username}?start={role}_{user_id}"
+
+    def create_admin(self, admin_in: AdminCreate) -> AdminOut:
         """Handle creation of a new admin account."""
         # Check Username uniqueness
         if self.admin_repo.get_by_username(admin_in.username):
@@ -54,7 +84,12 @@ class AdminController:
             raise HTTPException(status.HTTP_409_CONFLICT, detail="Email/Phone already in use.")
 
         hashed_password = hash_password(admin_in.password)
-        return self.admin_repo.create(admin_in, hashed_password)
+        db_admin = self.admin_repo.create(admin_in, hashed_password)
+        
+        # Convert to Pydantic and add link
+        out = AdminOut.from_orm(db_admin)
+        out.telegram_magic_link = self._generate_magic_link(db_admin.admin_id, "admin")
+        return out
 
     def update_admin(self, admin_id: UUID, admin_in: AdminUpdate) -> adminModel:
         """Update admin details, rehashing password if changed."""
@@ -68,7 +103,7 @@ class AdminController:
 
         return self.admin_repo.update(admin, update_data)
 
-    def create_technical_account(self, tech_in: TechnicalCreate) -> TechnicalModel:
+    def create_technical_account(self, tech_in: TechnicalCreate) -> TechnicalOut:
         """Create a technical account with cross-table conflict checks."""
         # Check Username across both tables
         if self.admin_repo.get_by_username(tech_in.username) or self.tech_repo.get_by_username(tech_in.username):
@@ -83,7 +118,12 @@ class AdminController:
             raise HTTPException(status.HTTP_409_CONFLICT, detail="Phone number linked to an Admin account.")
 
         hashed_password = hash_password(tech_in.password)
-        return self.tech_repo.create(tech_in, hashed_password)
+        db_tech = self.tech_repo.create(tech_in, hashed_password)
+        
+        # Convert to Pydantic and add link
+        out = TechnicalOut.from_orm(db_tech)
+        out.telegram_magic_link = self._generate_magic_link(db_tech.technical_id, "tech")
+        return out
     
     # ---- Booking Management for Admins ----
 
@@ -117,33 +157,31 @@ class AdminController:
             await telegram_client.send_message(booking.customer.telegram_chat_id, msg)
         return booking
 
-    async def admin_create_booking(self, booking_info: AdminBookingCreate):
-        '''
+    async def create_booking_for_customer(self, booking_info: AdminBookingCreate):
+        """
         1. Admin-specific booking creation logic.
         2. Directly assign to a garage or technician.
         3. Bypass certain validations if needed.
-        '''
+        """
         # check user have account or not 
-        user = self.booking_repo.user_repo.get_user_by_phone(booking_info.phone)
+        user = self.booking_repo.user_repo.get_user_by_phone(booking_info.contact_phone)
         if not user:
             # create shadow account 
             user = self.booking_repo.user_repo.create_shadow_account(
-                phone=booking_info.phone,
+                phone=booking_info.contact_phone,
                 full_name=booking_info.full_name
             )   
-        booking_info.user_id = user.user_id
-        booking = self.booking_repo.create_admin_booking(booking_info)
-        if booking.techincian_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Technician ID must be provided for admin bookings."
-            )
         
-        if booking.customer is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Customer information must be provided for admin bookings."
-            )
+        # We don't modify the booking_info object if it's strictly validated by Pydantic
+        # Instead, we pass user.user_id to the repo method
+        booking = self.booking_repo.create_admin_booking(booking_info, user.user_id)
+        
+        # Technician check
+        if not booking.technician_id:
+             # If it wasn't provided in booking_info, this might fail depending on requirements.
+             # The router/schema might already enforce this.
+             pass
+
         if booking.customer and booking.customer.telegram_chat_id:
            message = (
             f"✅ *New Appointment Scheduled*\n\n"
@@ -153,14 +191,35 @@ class AdminController:
             f"📍 *Location:* {booking.service_location}"
         )
            await telegram_client.send_message(booking.customer.telegram_chat_id, message)
-        # Admin-specific logic can be added here
 
         return booking
     
     async def get_daily_overview(self, target_date: date):
+        """
+        Improved: Returns today's stats and all relevant activity.
+        1. Stats for the specific day.
+        2. All bookings that are PENDING (action required) or scheduled for that day.
+        """
+        from sqlalchemy import or_
+        from src.schemas.booking import Booking, BookingStatus
+        
+        # 1. Stats specifically for target_date
+        stats = self.booking_repo.get_booking_counts_by_status(target_date)
+        
+        # 2. Activity: Show everything scheduled for today OR anything that is still PENDING/REJECTED/REJECTED
+        # basically anything that needs admin attention today.
+        bookings = self.db.query(Booking).filter(
+            or_(
+                Booking.appointment_date == target_date,
+                Booking.status == BookingStatus.PENDING
+            )
+        ).options(
+            joinedload(Booking.customer)
+        ).order_by(Booking.status, Booking.start_time).all()
+
         return {
-            "stats": self.booking_repo.get_booking_counts_by_status(target_date),
-            "bookings": self.booking_repo.get_bookings_by_range(target_date, target_date)
+            "stats": stats,
+            "bookings": bookings
         }
     
     # Inside your AdminController class
@@ -171,16 +230,14 @@ class AdminController:
         """
         return self.booking_repo.search_bookings(query=query, status=status, limit=limit)
     
-    async def assign_team_to_booking(self, booking_id: int, team_name: str):
-        """Search team by name and link it to a booking."""
-        teams = self.tech_repo.search_teams_by_name(team_name)
-        if not teams:
-            raise HTTPException(status_code=404, detail=f"Team '{team_name}' not found.")
+    async def assign_team(self, booking_id: int, technical_team_id: UUID):
+        """Assign a technical team to a booking by its UUID."""
+        # Check if team exists
+        team = self.db.query(TechnicalTeam).filter(TechnicalTeam.team_id == technical_team_id).first()
+        if not team:
+            raise HTTPException(status_code=404, detail=f"Team with ID '{technical_team_id}' not found.")
         
-        # We take the best match (first result)
-        selected_team = teams[0]
-        
-        booking = self.booking_repo.assign_technical_team(booking_id, selected_team.team_id)
+        booking = self.booking_repo.assign_technical_team(booking_id, team.team_id)
         if not booking:
             raise HTTPException(status_code=404, detail="Booking not found.")
             

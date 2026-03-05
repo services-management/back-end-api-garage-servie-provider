@@ -24,6 +24,7 @@ def test_read_technical_me_success(authenticated_technical_client, technical_use
     assert data["username"] == technical_user.username
     assert data["role"] == "technical"
     assert data["status"] == "free"
+    assert "telegram_magic_link" in data
     assert "technical_id" in data
 
 def test_update_technical_details_success(authenticated_technical_client):

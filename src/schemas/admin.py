@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, String
+from sqlalchemy import Column, String, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 
 from src.config.database import Base
@@ -25,3 +25,6 @@ class adminModel(Base):
     # Contact Field (Fixed case sensitivity and added unique constraint)
     # The Python attribute is 'email_phone', but the DB column is explicitly 'Email_phone'
     email_phone = Column("Email_phone", String, unique=True, nullable=True)
+
+    # Active Status
+    is_active = Column(Boolean, default=True, nullable=False)
