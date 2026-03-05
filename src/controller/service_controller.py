@@ -3,6 +3,7 @@ from typing import List, Optional, Any
 
 from sqlalchemy.orm import Session
 
+from src.repositories.category_repositories import CategoryRepository
 from src.repositories.product_repositories import ProductRepository
 from src.repositories.service_repositories import ServiceRepository
 from src.repositories.vehicle_repository import VehicleRepository
@@ -16,6 +17,7 @@ class ServiceController:
         self.service_repo = ServiceRepository(db)
         self.product_repo = ProductRepository(db)
         self.vehicle_repo = VehicleRepository(db)
+        self.category_repo = CategoryRepository(db)
     def create_service(
         self,
         name: str,
@@ -23,7 +25,6 @@ class ServiceController:
         garage_price: Decimal,
         home_price: Decimal,
         duration_minutes: int,
-        service_type: ServiceType,
         description: Optional[str] = None,
         is_available: bool = True,
         associations: Optional[List[dict]] = None,
@@ -31,17 +32,17 @@ class ServiceController:
         # Check name uniqueness
         if self.service_repo.get_by_name(name):
             raise ValueError(f"Service with name '{name}' already exists.")
-         # Resolve product names to IDs in associations
+         # Resolve category names to IDs in associations
         resolved_associations = []
         if associations:
             for assoc in associations:
-                product_name = assoc.get("product_name")
-                if product_name:
-                    product = self.product_repo.get_by_name(product_name)
-                    if not product:
-                        raise ValueError(f"Product '{product_name}' not found.")
+                category_name = assoc.get("category_name")
+                if category_name:
+                    category = self.category_repo.get_by_name(category_name)
+                    if not category:
+                        raise ValueError(f"Category '{category_name}' not found.")
                     # Backend maps name to the database ID
-                    assoc["product_id"] = product.product_id
+                    assoc["category_id"] = category.categoryID
                 resolved_associations.append(assoc)
 
         service = self.service_repo.create(
@@ -52,7 +53,6 @@ class ServiceController:
             home_price=home_price,
             duration_minutes=duration_minutes,
             is_available=is_available,
-            service_type=service_type,
             associations=resolved_associations,
         )
         return service
@@ -80,6 +80,7 @@ class ServiceController:
         make_name: str,
         model_name: str,
         year: int,
+        engine: Optional[str] = None,
         vehicle_type: Optional[Any] = None,
         fuel_type: Optional[Any] = None,
         drive_type: Optional[Any] = None,
@@ -94,6 +95,7 @@ class ServiceController:
             make_name=make_name,
             model_name=model_name,
             year=year,
+            engine=engine,
             vehicle_type=vehicle_type,
             fuel_type=fuel_type,
             drive_type=drive_type,
@@ -101,6 +103,7 @@ class ServiceController:
             skip=skip,
             limit=limit
         )
+
 
     def get_service_estimates(
         self,
@@ -138,7 +141,6 @@ class ServiceController:
         home_price: Optional[Decimal] = None,
         duration_minutes: Optional[int] = None,
         is_available: Optional[bool] = None,
-        service_type: Optional[ServiceType] = None,
         associations: Optional[List[dict]] = None,
     ) -> Optional[Service]:
         # Check if service exists
@@ -154,12 +156,12 @@ class ServiceController:
         if associations is not None:
             resolved_associations = []
             for assoc in associations:
-                product_name = assoc.get("product_name")
-                if product_name:
-                    product = self.product_repo.get_by_name(product_name)
-                    if not product:
-                        raise ValueError(f"Product '{product_name}' not found.")
-                    assoc["product_id"] = product.product_id
+                category_name = assoc.get("category_name")
+                if category_name:
+                    category = self.category_repo.get_by_name(category_name)
+                    if not category:
+                        raise ValueError(f"Category '{category_name}' not found.")
+                    assoc["category_id"] = category.categoryID
                 resolved_associations.append(assoc)
 
         return self.service_repo.update(
@@ -171,7 +173,6 @@ class ServiceController:
             home_price=home_price,
             duration_minutes=duration_minutes,
             is_available=is_available,
-            service_type=service_type,
             associations=resolved_associations,
         )
 

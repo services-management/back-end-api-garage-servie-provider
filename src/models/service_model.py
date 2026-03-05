@@ -7,24 +7,33 @@ from pydantic import BaseModel, Field, model_validator
 from src.core.enums import ServiceType
 
 
-class ServiceProductAssociationEmbedded(BaseModel):
-    product_name: str = Field(..., example="oil")
-    quantity_required: int = Field(..., gt=0, example=2)
-    is_optional: bool = Field(False, example=False)
+class ServiceCategoryAssociationEmbedded(BaseModel):
+    category_name: str = Field(..., example="Engine Oil")
 
     class Config:
         from_attributes = True
-class ServiceProductAssociationResponse(ServiceProductAssociationEmbedded):
-    product_id: Optional[int] = Field(None, example=1)
+
+class ServiceCategoryAssociationResponse(BaseModel):
+    category_id: int = Field(..., example=1)
+    category_name: str = Field(..., example="Engine Oil")
+
+    class Config:
+        from_attributes = True
+
     @model_validator(mode='before')
     @classmethod
     def get_name_from_relationship(cls, data: Any) -> Any:
-        """
-        Extraction logic: If the SQLAlchemy object has a 'product' relationship,
-        extract the name from it.
-        """
-        if hasattr(data, "product") and data.product:
-            data.product_name = data.product.name
+        # If it's a dict (e.g. from service creation), it might already have category_id
+        if isinstance(data, dict):
+            return data
+            
+        # If it's a SQLAlchemy object
+        if hasattr(data, "category") and data.category:
+            # We must set these attributes on the object or return a dict
+            return {
+                "category_id": data.category_id,
+                "category_name": data.category.name
+            }
         return data
 
 class ServiceBase(BaseModel):
@@ -39,14 +48,14 @@ class ServiceBase(BaseModel):
     home_price: Decimal = Field(..., gt=Decimal("0"), description="Labor price for home service")
     duration_minutes: int = Field(..., gt=0, description="Typical duration of the service in minutes.")
     is_available: bool = Field(True, example=True, description="Indicates if the service is currently available.")
-    service_type: ServiceType = Field(default=ServiceType.GARAGE)
 
     class Config:
+
         from_attributes = True
 
 
 class ServiceCreate(ServiceBase):
-    associations: Optional[List[ServiceProductAssociationEmbedded]] = Field(default_factory=list)
+    associations: Optional[List[ServiceCategoryAssociationEmbedded]] = Field(default_factory=list)
 
 
 class ServiceUpdate(BaseModel):
@@ -57,7 +66,7 @@ class ServiceUpdate(BaseModel):
     home_price: Optional[Decimal] = Field(None, gt=Decimal("0"))
     duration_minutes: Optional[int] = Field(None, gt=0)
     is_available: Optional[bool] = None
-    associations: Optional[List[ServiceProductAssociationEmbedded]] = None
+    associations: Optional[List[ServiceCategoryAssociationEmbedded]] = None
 
     class Config:
         from_attributes = True
@@ -65,7 +74,8 @@ class ServiceUpdate(BaseModel):
 
 class ServiceResponse(ServiceBase):
     service_id: int = Field(..., example=123)
-    associations: List[ServiceProductAssociationResponse] = Field(default_factory=list)
+    status: str = Field(..., example="Active")
+    associations: List[ServiceCategoryAssociationResponse] = Field(default_factory=list)
 
 
 class ServiceProductEstimate(BaseModel):

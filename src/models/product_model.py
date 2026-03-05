@@ -12,6 +12,7 @@ from src.models.vehicle_model import VehicleBase
 class ProductBase(BaseModel):
     name: str = Field(..., min_length=1, example="Brake Pad", description="Unique name of the product/part.")
     selling_price: Decimal = Field(..., gt=Decimal("0"), example=Decimal("19.99"), description="Price charged to the customer.")
+    price_adjustment: Decimal = Field(Decimal("0.00"), description="Optional price adjustment for specific vehicle fitments.")
     unit_cost: Optional[Decimal] = Field(None, ge=Decimal("0"), example=Decimal("12.50"), description="Internal cost of the product.")
     description :Optional[str] = Field(None,max_length=255)
     image_url :Optional[str] = Field(None,description="image of the product")

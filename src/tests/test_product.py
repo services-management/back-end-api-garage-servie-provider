@@ -121,82 +121,82 @@ def test_list_products_empty(client):
     assert isinstance(data, list)
     assert len(data) == 0
 
-# def test_filter_products_by_vehicle_success(
-#     authenticated_admin_client,
-#     test_product, # Product compatible with Camry
-#     test_product_compatible_with_camry, # Ensures compatibility link exists
-#     another_test_product, # Product compatible with Civic
-#     test_product_compatible_with_civic # Ensures compatibility link exists
-# ):
-#     """
-#     Test filtering products by vehicle information (Toyota Camry).
-#     """
-#     # Ensure all fixtures are loaded before running the test
-#     assert test_product.product_id is not None
-#     assert test_product_compatible_with_camry.product_id is not None
-#     assert another_test_product.product_id is not None
-#     assert test_product_compatible_with_civic.product_id is not None
+def test_filter_products_by_vehicle_success(
+    authenticated_admin_client,
+    test_product, # Product compatible with Camry
+    test_product_compatible_with_camry, # Ensures compatibility link exists
+    another_test_product, # Product compatible with Civic
+    test_product_compatible_with_civic # Ensures compatibility link exists
+):
+    """
+    Test filtering products by vehicle information (Toyota Camry).
+    """
+    # Ensure all fixtures are loaded before running the test
+    assert test_product.product_id is not None
+    assert test_product_compatible_with_camry.product_id is not None
+    assert another_test_product.product_id is not None
+    assert test_product_compatible_with_civic.product_id is not None
 
-#     # Test with Toyota Camry
-#     params_camry = {
-#         "make": "Toyota",
-#         "model": "Camry",
-#         "year": 2022,
-#         "vehicle_type": "Sedan",
-#         "fuel_type": "Gasoline",
-#         "drive_type": "FWD",
-#         "transmission": "Automatic",
-#     }
-#     response = authenticated_admin_client.get("/product/filter-by-vehicle", params=params_camry)
-#     assert response.status_code == status.HTTP_200_OK
-#     products = response.json()
+    # Test with Toyota Camry
+    params_camry = {
+        "make": "Toyota",
+        "model": "Camry",
+        "year": 2022,
+        "vehicle_type": "Sedan",
+        "fuel_type": "Gasoline",
+        "drive_type": "FWD",
+        "transmission": "Automatic",
+    }
+    response = authenticated_admin_client.get("/product/filter-by-vehicle", params=params_camry)
+    assert response.status_code == status.HTTP_200_OK
+    products = response.json()
 
-#     assert len(products) == 1
-#     assert products[0]["name"] == "Test Product"
-#     # Additional assertions for product details if needed
+    assert len(products) == 1
+    assert products[0]["name"] == "Test Product"
+    # Additional assertions for product details if needed
 
-#     # Test with Honda Civic
-#     params_civic = {
-#         "make": "Honda",
-#         "model": "Civic",
-#         "year": 2023,
-#         "vehicle_type": "Sedan",
-#         "fuel_type": "Gasoline",
-#         "drive_type": "FWD",
-#         "transmission": "CVT",
-#     }
-#     response = authenticated_admin_client.get("/product/filter-by-vehicle", params=params_civic)
-#     assert response.status_code == status.HTTP_200_OK
-#     products = response.json()
+    # Test with Honda Civic
+    params_civic = {
+        "make": "Honda",
+        "model": "Civic",
+        "year": 2023,
+        "vehicle_type": "Sedan",
+        "fuel_type": "Gasoline",
+        "drive_type": "FWD",
+        "transmission": "CVT",
+    }
+    response = authenticated_admin_client.get("/product/filter-by-vehicle", params=params_civic)
+    assert response.status_code == status.HTTP_200_OK
+    products = response.json()
 
-#     assert len(products) == 1
-#     assert products[0]["name"] == "Honda Specific Part"
+    assert len(products) == 1
+    assert products[0]["name"] == "Honda Specific Part"
 
-#     # Test with a non-existent vehicle
-#     params_non_existent = {
-#         "make": "Ford",
-#         "model": "F-150",
-#         "year": 2020,
-#     }
-#     response = authenticated_admin_client.get("/product/filter-by-vehicle", params=params_non_existent)
-#     assert response.status_code == status.HTTP_200_OK # Should return empty list, not 404
-#     products = response.json()
-#     assert len(products) == 0
+    # Test with a non-existent vehicle
+    params_non_existent = {
+        "make": "Ford",
+        "model": "F-150",
+        "year": 2020,
+    }
+    response = authenticated_admin_client.get("/product/filter-by-vehicle", params=params_non_existent)
+    assert response.status_code == status.HTTP_200_OK # Should return empty list, not 404
+    products = response.json()
+    assert len(products) == 0
 
-#     # Test with missing required parameters (e.g., missing make)
-#     params_missing_make = {
-#         "model": "Camry",
-#         "year": 2022,
-#     }
-#     response = authenticated_admin_client.get("/product/filter-by-vehicle", params=params_missing_make)
-#     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY # FastAPI's validation error
+    # Test with missing required parameters (e.g., missing make)
+    params_missing_make = {
+        "model": "Camry",
+        "year": 2022,
+    }
+    response = authenticated_admin_client.get("/product/filter-by-vehicle", params=params_missing_make)
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY # FastAPI's validation error
 
-#     # Test with invalid year
-#     params_invalid_year = {
-#         "make": "Toyota",
-#         "model": "Camry",
-#         "year": 1800, # Year out of range (ge=1900)
-#     }
-#     response = authenticated_admin_client.get("/product/filter-by-vehicle", params=params_invalid_year)
-#     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    # Test with invalid year
+    params_invalid_year = {
+        "make": "Toyota",
+        "model": "Camry",
+        "year": 1800, # Year out of range (ge=1900)
+    }
+    response = authenticated_admin_client.get("/product/filter-by-vehicle", params=params_invalid_year)
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 

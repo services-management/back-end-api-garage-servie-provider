@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship,backref
 
 from src.config.database import Base
-from src.core.enums import BookingStatus, BookingSource, UserStatus
+from src.core.enums import BookingStatus, BookingSource, UserStatus, ServiceType
 
 
 class User(Base):
@@ -51,8 +51,11 @@ class Booking(Base):
     processed_by = Column(UUID(as_uuid=True), ForeignKey("admin.admin_id"), nullable=True)
     technical_team_id = Column(UUID(as_uuid=True), ForeignKey("technical_team.team_id"), nullable=True)
     # NEW: Requirement - provide car details
+    vehicle_id = Column(Integer, ForeignKey("vehicles.vehicle_id"), nullable=True)
     car_make = Column(String(50), nullable=False)   # e.g., "Toyota"
     car_model = Column(String(50), nullable=False)  # e.g., "Camry"
+    car_year = Column(Integer, nullable=True)       # e.g., 2023
+    car_engine = Column(String(50), nullable=True)  # e.g., "2.5L Hybrid"
 
     # NEW: Requirement - share location and phone number
     service_location = Column(Text, nullable=False) # Address or Coordinates
@@ -75,6 +78,7 @@ class Booking(Base):
     # Schedule
     appointment_date = Column(Date, nullable=False)
     start_time = Column(Time, nullable=False)
+    service_mode = Column(SQLEnum(ServiceType, native_enum=False), nullable=False, default=ServiceType.GARAGE)
     
     # 7. PAYMENT (essential)
     payment_status = Column(String, default="pending", nullable=False)

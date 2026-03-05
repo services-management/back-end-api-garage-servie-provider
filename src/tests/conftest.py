@@ -12,7 +12,7 @@ os.environ["TESTING"] = "True"
 from src.app.app import app
 from src.config.database import Base, get_db
 from src.schemas.admin import adminModel
-from src.schemas.product import Product, Category, Service, Inventory
+from src.schemas.product import Product, Category, Service, Inventory, ProductVehicleCompatibility
 from src.schemas.vehicle import Make, Model, Vehicle, VehicleType, FuelType, DriveType, TransmissionType
 from src.schemas.techincal import TechnicalModel, TechnicalTeam
 from src.schemas.booking import User, UserStatus, Booking, BookingStatus, BookingSource
@@ -255,3 +255,88 @@ def test_booking(db_session, test_user):
     db_session.commit()
     db_session.refresh(booking)
     return booking
+
+@pytest.fixture(scope="function")
+def test_make_honda(db_session):
+    make = Make(name="Honda", is_active=True)
+    db_session.add(make)
+    db_session.commit()
+    db_session.refresh(make)
+    return make
+
+@pytest.fixture(scope="function")
+def test_model_civic(db_session, test_make_honda):
+    model = Model(name="Civic", make_id=test_make_honda.id, make=test_make_honda, is_active=True)
+    db_session.add(model)
+    db_session.commit()
+    db_session.refresh(model)
+    return model
+
+@pytest.fixture(scope="function")
+def test_vehicle_civic_2023(db_session, test_model_civic):
+    vehicle = Vehicle(
+        model_id=test_model_civic.id,
+        year=2023,
+        engine="1.5L Turbo",
+        vehicle_type=VehicleType.SEDAN,
+        fuel_type=FuelType.GASOLINE,
+        drive_type=DriveType.FWD,
+        transmission=TransmissionType.CVT,
+        is_active=True,
+        model=test_model_civic
+    )
+    db_session.add(vehicle)
+    db_session.commit()
+    db_session.refresh(vehicle)
+    return vehicle
+
+@pytest.fixture(scope="function")
+def another_test_product(db_session, test_category):
+    from src.schemas.product import ProductStatus
+    from decimal import Decimal
+    from datetime import date
+    product = Product(
+        name="Honda Specific Part",
+        selling_price=Decimal("150.00"),
+        unit_cost=Decimal("100.00"),
+        category_id=test_category.categoryID,
+        description="A Honda Specific product",
+        status=ProductStatus.ACTIVE
+    )
+    db_session.add(product)
+    db_session.flush()
+    
+    inventory = Inventory(
+        product_id=product.product_id,
+        current_stock=Decimal("10.0"),
+        min_stock_level=Decimal("2.0"),
+        last_restock_date=date.today()
+    )
+    db_session.add(inventory)
+    db_session.commit()
+    db_session.refresh(product)
+    return product
+
+@pytest.fixture(scope="function")
+def test_product_compatible_with_camry(db_session, test_product, test_vehicle_camry_2022):
+    link = ProductVehicleCompatibility(
+        product_id=test_product.product_id,
+        vehicle_id=test_vehicle_camry_2022.vehicle_id,
+        quantity_required="1",
+        note="Standard Fit"
+    )
+    db_session.add(link)
+    db_session.commit()
+    return test_product
+
+@pytest.fixture(scope="function")
+def test_product_compatible_with_civic(db_session, another_test_product, test_vehicle_civic_2023):
+    link = ProductVehicleCompatibility(
+        product_id=another_test_product.product_id,
+        vehicle_id=test_vehicle_civic_2023.vehicle_id,
+        quantity_required="1",
+        note="Honda Fit"
+    )
+    db_session.add(link)
+    db_session.commit()
+    return another_test_product

@@ -113,3 +113,15 @@ class UserRepository:
 
     def get_user_by_telegram_chat_id(self, chat_id: int) -> Optional[User]:
         return self.db.query(User).filter(User.telegram_chat_id == chat_id).first()
+
+    def has_booking_conflict(self, user_id: UUID, appointment_date: date, start_time: Any) -> bool:
+        """
+        Check if the user already has a pending or confirmed booking at the same date/time.
+        """
+        existing = self.db.query(Booking).filter(
+            Booking.user_id == user_id,
+            Booking.appointment_date == appointment_date,
+            Booking.start_time == start_time,
+            Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED])
+        ).first()
+        return existing is not None

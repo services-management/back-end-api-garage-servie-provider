@@ -11,6 +11,7 @@ from src.config.database import get_db  # database session dependency
 from src.models.admin_model import AdminOut  # The secure output Pydantic model
 from src.models.technical_model import TechnicalOut
 from src.models.user_model import UserResponse
+from src.config.settings import settings
 from src.repositories.admin_repositories import \
     AdminRepository  # The repo to fetch the admin
 from src.repositories.technical_repositorie import TechnicalRepository
@@ -85,7 +86,9 @@ def get_current_technical_user(
         )
         
     # 5. Return the Pydantic output model
-    return TechnicalOut.model_validate(technical_model)
+    out = TechnicalOut.model_validate(technical_model)
+    out.telegram_magic_link = f"https://t.me/{settings.TELEGRAM_BOT_USERNAME}?start=tech_{out.technical_id}"
+    return out
 
 def get_current_admin_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
@@ -145,7 +148,9 @@ def get_current_admin_user(
         )
         
     # 5. Return the Pydantic output model
-    return AdminOut.model_validate(admin_model)
+    out = AdminOut.model_validate(admin_model)
+    out.telegram_magic_link = f"https://t.me/{settings.TELEGRAM_BOT_USERNAME}?start=admin_{out.admin_id}"
+    return out
 
 def get_current_user_admin_or_technical(
         credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),

@@ -67,17 +67,25 @@ class ProductRepository(BaseRepository[Product]):
     def list_by_category(self, category_id: int, skip: int = 0, limit: int = 100) -> List[Product]:
         stmt = (
             select(Product)
-            .where(Product.category_id == category_id)
+            .options(
+                joinedload(Product.category),
+                joinedload(Product.inventory)
+            )
+            .where(
+                Product.category_id == category_id,
+                Product.status == ProductStatus.ACTIVE
+            )
             .offset(skip)
             .limit(limit)
         )
-        return list(self.db.execute(stmt).scalars().all())
+        return list(self.db.execute(stmt).scalars().unique().all())
 
     def filter_by_vehicle(
         self,
         make_name: str,
         model_name: str,
         year: int,
+        engine: Optional[str] = None,
         vehicle_type: Optional[Any] = None,
         fuel_type: Optional[Any] = None,
         drive_type: Optional[Any] = None,
@@ -101,6 +109,9 @@ class ProductRepository(BaseRepository[Product]):
                 Product.status == ProductStatus.ACTIVE
             )
         )
+
+        if engine:
+            stmt = stmt.where(Vehicle.engine == engine)
         
         if vehicle_type:
             stmt = stmt.where(Vehicle.vehicle_type == vehicle_type)

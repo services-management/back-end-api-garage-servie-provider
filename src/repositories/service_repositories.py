@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from src.repositories.base_repositories import BaseRepository
-from src.schemas.product import Service, ServiceProductAssociation, ProductVehicleCompatibility, ProductStatus
+from src.schemas.product import Service, ServiceCategoryAssociation, ProductVehicleCompatibility, ProductStatus, Product
 from src.core.enums import ServiceType
 import re
 
@@ -20,7 +20,7 @@ class ServiceRepository(BaseRepository[Service]):
     def get_by_id_with_relations(self, service_id: int) -> Optional[Service]:
         stmt = (
             select(Service)
-            .options(joinedload(Service.associations))
+            .options(joinedload(Service.associations).joinedload(ServiceCategoryAssociation.category))
             .where(Service.service_id == service_id)
         )
         return self.db.execute(stmt).scalars().first()
@@ -30,13 +30,19 @@ class ServiceRepository(BaseRepository[Service]):
         return self.db.execute(stmt).scalars().first()
 
     def list(self, skip: int = 0, limit: int = 100) -> List[Service]:
-        stmt = select(Service).offset(skip).limit(limit)
+        stmt = (
+            select(Service)
+            .where(Service.status != ProductStatus.DELETED)
+            .offset(skip)
+            .limit(limit)
+        )
         return list(self.db.execute(stmt).scalars().all())
 
     def list_with_relations(self, skip: int = 0, limit: int = 100) -> List[Service]:
         stmt = (
             select(Service)
-            .options(joinedload(Service.associations))
+            .options(joinedload(Service.associations).joinedload(ServiceCategoryAssociation.category))
+            .where(Service.status != ProductStatus.DELETED)
             .offset(skip)
             .limit(limit)
         )
@@ -56,6 +62,7 @@ class ServiceRepository(BaseRepository[Service]):
         make_name: str,
         model_name: str,
         year: int,
+        engine: Optional[str] = None,
         vehicle_type: Optional[Any] = None,
         fuel_type: Optional[Any] = None,
         drive_type: Optional[Any] = None,
@@ -63,36 +70,20 @@ class ServiceRepository(BaseRepository[Service]):
         skip: int = 0,
         limit: int = 100
     ) -> List[Service]:
-        from src.schemas.vehicle import Make, Model, Vehicle
-        from src.schemas.product import ServiceVehicleCompatibility
-        
+        # Logic: Services are universal. We return all active services.
+        # The 'vehicle' parameters are used later in estimation to find correct parts.
         stmt = (
             select(Service)
-            .join(ServiceVehicleCompatibility, Service.service_id == ServiceVehicleCompatibility.service_id)
-            .join(Vehicle, ServiceVehicleCompatibility.vehicle_id == Vehicle.vehicle_id)
-            .join(Model, Vehicle.model_id == Model.id)
-            .join(Make, Model.make_id == Make.id)
             .where(
-                Make.name == make_name,
-                Model.name == model_name,
-                Vehicle.year == year,
-                Service.is_available
+                Service.is_available,
+                Service.status != ProductStatus.DELETED
             )
+            .options(
+                joinedload(Service.associations).joinedload(ServiceCategoryAssociation.category)
+            )
+            .offset(skip)
+            .limit(limit)
         )
-        
-        if vehicle_type:
-            stmt = stmt.where(Vehicle.vehicle_type == vehicle_type)
-        if fuel_type:
-            stmt = stmt.where(Vehicle.fuel_type == fuel_type)
-        if drive_type:
-            stmt = stmt.where(Vehicle.drive_type == drive_type)
-        if transmission:
-            stmt = stmt.where(Vehicle.transmission == transmission)
-            
-        stmt = stmt.options(
-            joinedload(Service.associations)
-        ).offset(skip).limit(limit)
-        
         return list(self.db.execute(stmt).scalars().unique().all())
 
     def get_service_estimates(
@@ -100,48 +91,53 @@ class ServiceRepository(BaseRepository[Service]):
         vehicle_id: int,
         service_type: ServiceType
     ) -> List[dict]:
-        from src.schemas.product import ServiceVehicleCompatibility
-        
-        # 1. Get services compatible with this vehicle
-        # Note: We filter by service_type to only show relevant services for the selected mode
+        # 1. Get all active services (no longer joining ServiceVehicleCompatibility)
         stmt = (
             select(Service)
-            .join(ServiceVehicleCompatibility, Service.service_id == ServiceVehicleCompatibility.service_id)
             .where(
-                ServiceVehicleCompatibility.vehicle_id == vehicle_id,
-                Service.service_type == service_type,
-                Service.is_available
+                Service.is_available,
+                Service.status != ProductStatus.DELETED
             )
-            .options(joinedload(Service.associations).joinedload(ServiceProductAssociation.product))
+            .options(joinedload(Service.associations).joinedload(ServiceCategoryAssociation.category))
         )
         services = self.db.execute(stmt).scalars().unique().all()
         
         estimates = []
         for service in services:
-            # Labor price depends on service type
             labor_price = Decimal(str(service.home_price if service_type == ServiceType.HOME else service.garage_price))
             service_total = labor_price
             product_estimates = []
             
             for assoc in service.associations:
-                product = assoc.product
-                # Find product quantity for THIS specific vehicle
+                category = assoc.category
+                # Find a product in this category that is compatible with this specific vehicle
+                product_stmt = (
+                    select(Product)
+                    .join(ProductVehicleCompatibility, Product.product_id == ProductVehicleCompatibility.product_id)
+                    .where(
+                        Product.category_id == category.categoryID,
+                        ProductVehicleCompatibility.vehicle_id == vehicle_id,
+                        Product.status == ProductStatus.ACTIVE
+                    )
+                )
+                product = self.db.execute(product_stmt).scalars().first()
+                
+                if not product:
+                    # If no compatible product is found for this category, we might want to skip or handle it
+                    continue
+
                 compat_stmt = select(ProductVehicleCompatibility).where(
                     ProductVehicleCompatibility.product_id == product.product_id,
                     ProductVehicleCompatibility.vehicle_id == vehicle_id
                 )
                 compat = self.db.execute(compat_stmt).scalars().first()
                 
-                # Parse quantity (e.g., "4.5L" -> 4.5)
                 qty = Decimal("1") # Default
                 if compat and compat.quantity_required:
                     match = re.search(r"(\d+\.?\d*)", compat.quantity_required)
                     if match:
                         qty = Decimal(match.group(1))
                 
-                # Product price calculation:
-                # Garage: selling_price * qty
-                # Home: (selling_price + price_adjustment) * qty
                 base_unit_price = Decimal(str(product.selling_price))
                 if service_type == ServiceType.HOME:
                     final_unit_price = base_unit_price + Decimal(str(product.price_adjustment))
@@ -162,7 +158,7 @@ class ServiceRepository(BaseRepository[Service]):
             estimates.append({
                 "service_id": service.service_id,
                 "service_name": service.name,
-                "service_type": service.service_type,
+                "service_type": service_type,
                 "base_labor_price": labor_price,
                 "products": product_estimates,
                 "total_estimated_price": service_total,
@@ -178,7 +174,6 @@ class ServiceRepository(BaseRepository[Service]):
         garage_price: Decimal,
         home_price: Decimal,
         duration_minutes: int,
-        service_type: ServiceType,
         description: Optional[str] = None,
         is_available: bool = True,
         associations: Optional[List[dict]] = None,
@@ -190,19 +185,16 @@ class ServiceRepository(BaseRepository[Service]):
             garage_price=garage_price,
             home_price=home_price,
             duration_minutes=duration_minutes,
-            is_available=is_available,
-            service_type=service_type
+            is_available=is_available
         )
         self.db.add(service)
         self.db.flush()
 
         if associations:
             for assoc_data in associations:
-                assoc = ServiceProductAssociation(
+                assoc = ServiceCategoryAssociation(
                     service_id=service.service_id,
-                    product_id=assoc_data["product_id"],
-                    quantity_required=assoc_data["quantity_required"],
-                    is_optional=assoc_data.get("is_optional", False)
+                    category_id=assoc_data["category_id"]
                 )
                 self.db.add(assoc)
 
@@ -220,7 +212,6 @@ class ServiceRepository(BaseRepository[Service]):
         home_price: Optional[Decimal] = None,
         duration_minutes: Optional[int] = None,
         is_available: Optional[bool] = None,
-        service_type: Optional[ServiceType] = None,
         associations: Optional[List[dict]] = None,
     ) -> Optional[Service]:
         service = self.get_by_id(service_id)
@@ -241,25 +232,17 @@ class ServiceRepository(BaseRepository[Service]):
             service.duration_minutes = duration_minutes
         if is_available is not None:
             service.is_available = is_available
-        if service_type is not None:
-            service.service_type = service_type
 
         if associations is not None:
-            # Clear existing associations
-            stmt = select(ServiceProductAssociation).where(ServiceProductAssociation.service_id == service_id)
-            existing_assocs = self.db.execute(stmt).scalars().all()
-            for assoc in existing_assocs:
-                self.db.delete(assoc)
-            
-            # Add new associations
-            for assoc_data in associations:
-                assoc = ServiceProductAssociation(
+            # By assigning a new list, SQLAlchemy's delete-orphan cascade 
+            # will automatically delete the old records from the table.
+            service.associations = [
+                ServiceCategoryAssociation(
                     service_id=service_id,
-                    product_id=assoc_data["product_id"],
-                    quantity_required=assoc_data["quantity_required"],
-                    is_optional=assoc_data.get("is_optional", False)
+                    category_id=assoc_data["category_id"]
                 )
-                self.db.add(assoc)
+                for assoc_data in associations
+            ]
 
         self.db.commit()
         self.db.refresh(service)
