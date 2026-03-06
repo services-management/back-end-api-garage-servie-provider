@@ -84,7 +84,8 @@ class VehicleRepository:
 
     def create_vehicle(self, model_id: int, year: int, engine: str, 
                        v_type: VehicleType, f_type: FuelType, 
-                       d_type: DriveType, trans: TransmissionType) -> Vehicle:
+                       d_type: DriveType, trans: TransmissionType,
+                       img_url: Optional[str] = None) -> Vehicle:
         db_vehicle = Vehicle(
             model_id=model_id,
             year=year,
@@ -93,12 +94,40 @@ class VehicleRepository:
             fuel_type=f_type,
             drive_type=d_type,
             transmission=trans,
+            img_url=img_url,
             is_active=True
         )
         self.db.add(db_vehicle)
         self.db.commit()
         self.db.refresh(db_vehicle)
         return db_vehicle
+
+    def search_vehicles(self, 
+                        model_id: Optional[int] = None, 
+                        year: Optional[int] = None, 
+                        engine: Optional[str] = None, 
+                        vehicle_type: Optional[VehicleType] = None, 
+                        fuel_type: Optional[FuelType] = None, 
+                        drive_type: Optional[DriveType] = None, 
+                        transmission: Optional[TransmissionType] = None) -> List[Vehicle]:
+        query = self.db.query(Vehicle).filter(Vehicle.is_active)
+        
+        if model_id is not None:
+            query = query.filter(Vehicle.model_id == model_id)
+        if year is not None:
+            query = query.filter(Vehicle.year == year)
+        if engine is not None:
+            query = query.filter(Vehicle.engine.ilike(f"%{engine}%"))
+        if vehicle_type is not None:
+            query = query.filter(Vehicle.vehicle_type == vehicle_type)
+        if fuel_type is not None:
+            query = query.filter(Vehicle.fuel_type == fuel_type)
+        if drive_type is not None:
+            query = query.filter(Vehicle.drive_type == drive_type)
+        if transmission is not None:
+            query = query.filter(Vehicle.transmission == transmission)
+            
+        return query.all()
 
     def get_by_id(self, vehicle_id: int) -> Optional[Vehicle]:
         return self.db.query(Vehicle).filter(Vehicle.vehicle_id == vehicle_id).first()

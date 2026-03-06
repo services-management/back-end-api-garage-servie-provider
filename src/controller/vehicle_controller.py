@@ -52,8 +52,30 @@ class Vehiclecontroller:
             v_type=vehicle_data.vehicle_type,
             f_type=vehicle_data.fuel_type,
             d_type=vehicle_data.drive_type,
-            trans=vehicle_data.transmission
+            trans=vehicle_data.transmission,
+            img_url=vehicle_data.img_url
         )
+
+    def search_vehicles(self, 
+                        model_id: int = None, 
+                        year: int = None, 
+                        engine: str = None, 
+                        vehicle_type: str = None, 
+                        fuel_type: str = None, 
+                        drive_type: str = None, 
+                        transmission: str = None):
+        return self.vehicle_repo.search_vehicles(
+            model_id=model_id,
+            year=year,
+            engine=engine,
+            vehicle_type=vehicle_type,
+            fuel_type=fuel_type,
+            drive_type=drive_type,
+            transmission=transmission
+        )
+
+    def update_vehicle(self, vehicle_id: int, update_data: dict):
+        return self.vehicle_repo.update_vehicle(vehicle_id, update_data)
 
     def update_existing_make(self, make_id: int, name: str):
         updated = self.vehicle_repo.update_make(make_id, name)

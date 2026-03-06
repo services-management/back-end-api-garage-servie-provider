@@ -1,4 +1,4 @@
-from typing import List
+from typing import List,Optional
 from sqlalchemy.orm import Session
 from src.repositories.slideshow_repositories import SlideshowRepository
 from src.core.enums import ServiceType
@@ -13,6 +13,14 @@ class SlideshowController:
 
     def add_slide(self, image_url: str, service_type: ServiceType) -> Slideshow:
         return self.repo.create_slide(image_url, service_type)
+
+    def update_slide(self, slide_id: int, image_url: str) -> Optional[Slideshow]:
+        slide = self.repo.get(slide_id)
+        if slide:
+            slide.image_url = image_url
+            self.repo.db.commit()
+            self.repo.db.refresh(slide)
+        return slide
 
     def delete_slide(self, slide_id: int) -> bool:
         slide = self.repo.get(slide_id)

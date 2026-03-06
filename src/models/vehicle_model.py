@@ -32,6 +32,7 @@ class VehicleBase(BaseModel):
     model_id: int
     year: int
     engine: Optional[str] = None
+    img_url: Optional[str] = None
     vehicle_type: VehicleType
     fuel_type: FuelType
     drive_type: DriveType
@@ -45,6 +46,7 @@ class VehicleCreate(BaseModel):
     model_id: int
     year: int
     engine: Optional[str] = None
+    img_url: Optional[str] = None
     vehicle_type: VehicleType
     fuel_type: FuelType
     drive_type: DriveType
@@ -56,6 +58,7 @@ class VehicleUpdate(BaseModel):
     model_id: Optional[int] = None
     year: Optional[int] = None
     engine: Optional[str] = None
+    img_url: Optional[str] = None
     vehicle_type: Optional[VehicleType] = None
     fuel_type: Optional[FuelType] = None
     drive_type: Optional[DriveType] = None
