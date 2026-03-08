@@ -35,6 +35,13 @@ def test_search_vehicles_public(client, test_vehicle_camry_2022, test_vehicle_ci
     assert response.json()[0]["year"] == 2022
     assert response.json()[0]["img_url"] == "http://example.com/camry.jpg"
 
+    # Search by make_id (Camry belongs to Toyota)
+    toyota_make_id = test_vehicle_camry_2022.model.make_id
+    response = client.get(f"/vehicles/search?make_id={toyota_make_id}")
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["model"]["make"]["name"] == "Toyota"
+
     # Search by year
     response = client.get("/vehicles/search?year=2023")
     assert response.status_code == 200

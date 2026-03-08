@@ -58,6 +58,7 @@ class Vehiclecontroller:
 
     def search_vehicles(self, 
                         model_id: int = None, 
+                        make_id: int = None,
                         year: int = None, 
                         engine: str = None, 
                         vehicle_type: str = None, 
@@ -66,6 +67,7 @@ class Vehiclecontroller:
                         transmission: str = None):
         return self.vehicle_repo.search_vehicles(
             model_id=model_id,
+            make_id=make_id,
             year=year,
             engine=engine,
             vehicle_type=vehicle_type,

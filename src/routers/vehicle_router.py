@@ -51,6 +51,7 @@ def get_vehicle_configurations(model_id: int, year: int, controller: Vehiclecont
 @router.get("/search", response_model=List[VehicleBase])
 def search_vehicles(
     model_id: int = None,
+    make_id: int = None,
     year: int = None,
     engine: str = None,
     vehicle_type: VehicleType = None,
@@ -61,6 +62,7 @@ def search_vehicles(
 ):
     return controller.search_vehicles(
         model_id=model_id,
+        make_id=make_id,
         year=year,
         engine=engine,
         vehicle_type=vehicle_type,

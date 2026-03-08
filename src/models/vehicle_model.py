@@ -29,6 +29,7 @@ class Makeupdate(BaseModel):
     
 
 class VehicleBase(BaseModel):
+    vehicle_id:int
     model_id: int
     year: int
     engine: Optional[str] = None

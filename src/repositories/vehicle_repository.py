@@ -104,6 +104,7 @@ class VehicleRepository:
 
     def search_vehicles(self, 
                         model_id: Optional[int] = None, 
+                        make_id: Optional[int] = None,
                         year: Optional[int] = None, 
                         engine: Optional[str] = None, 
                         vehicle_type: Optional[VehicleType] = None, 
@@ -112,6 +113,10 @@ class VehicleRepository:
                         transmission: Optional[TransmissionType] = None) -> List[Vehicle]:
         query = self.db.query(Vehicle).filter(Vehicle.is_active)
         
+        # Join with Model if we need to filter by make_id
+        if make_id is not None:
+            query = query.join(Vehicle.model).filter(Model.make_id == make_id)
+
         if model_id is not None:
             query = query.filter(Vehicle.model_id == model_id)
         if year is not None:
