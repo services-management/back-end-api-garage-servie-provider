@@ -1,9 +1,7 @@
 import uuid
-import pytest
 from sqlalchemy.orm import Session
 from src.repositories.admin_repositories import AdminRepository
 from src.models.admin_model import AdminCreate
-from src.app.app import DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD
 
 # --- Repository Unit Tests ---
 

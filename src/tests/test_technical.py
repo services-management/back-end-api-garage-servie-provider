@@ -1,5 +1,4 @@
 
-import pytest
 from sqlalchemy.orm import Session
 from src.repositories.technical_repositorie import TechnicalRepository
 from src.models.technical_model import TechnicalCreate, TechnicalTeamCreate
