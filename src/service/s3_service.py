@@ -5,9 +5,7 @@ from typing import Optional
 import boto3
 from botocore.exceptions import ClientError
 
-from src.config.settings import Settings
-
-settings = Settings()
+from src.config.settings import settings
 
 
 class S3Service:

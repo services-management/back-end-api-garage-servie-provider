@@ -15,7 +15,7 @@ class AdminRepository:
         # the database session is injected here
         self.db = db
 
-    def create_default_admin(self, username: str, password: str, email_phone: str) -> adminModel:
+    def create_default_admin(self, username: str, password: str, email_phone: str, is_active: bool = True) -> adminModel:
         """
         Creates a new Admin user with a hashed password.
         This is often called by a startup script or test setup.
@@ -34,6 +34,7 @@ class AdminRepository:
             password=hashed_password,
             email_phone=email_phone,
             role="admin", # Assuming a default role
+            is_active=is_active
         )
         
         # 4. Add and commit to the database
@@ -63,7 +64,8 @@ class AdminRepository:
             username=username.username,
             password=hashed_password,
             email_phone= username.email_phone,
-            role="admin"
+            role="admin",
+            is_active=True
         )
         self.db.add(db_admin)
         self.db.commit()

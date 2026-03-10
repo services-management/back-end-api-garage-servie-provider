@@ -44,6 +44,13 @@ class Settings(BaseSettings):
     S3_REGION: str = os.getenv("S3_REGION", "us-east-1")
 
     @model_validator(mode="after")
+    def validate_s3_endpoint(self):
+        """Ensure S3_ENDPOINT_URL starts with http:// or https://."""
+        if self.S3_ENDPOINT_URL and not (self.S3_ENDPOINT_URL.startswith("http://") or self.S3_ENDPOINT_URL.startswith("https://")):
+            self.S3_ENDPOINT_URL = f"https://{self.S3_ENDPOINT_URL}"
+        return self
+
+    @model_validator(mode="after")
     def construct_db_url(self):
         """Construct DATABASE_URL from individual components if not provided.
         

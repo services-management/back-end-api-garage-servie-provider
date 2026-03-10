@@ -1,4 +1,42 @@
 import uuid
+import pytest
+from sqlalchemy.orm import Session
+from src.repositories.admin_repositories import AdminRepository
+from src.models.admin_model import AdminCreate
+from src.app.app import DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD
+
+# --- Repository Unit Tests ---
+
+def test_repo_create_default_admin_is_active(db_session: Session):
+    """Unit test: Verify create_default_admin sets is_active=True."""
+    repo = AdminRepository(db_session)
+    username = "super_admin_test_repo"
+    password = "password123"
+    email = "super_repo@test.com"
+    
+    admin = repo.create_default_admin(username, password, email)
+    
+    assert admin is not None
+    assert admin.username == username
+    assert admin.is_active is True
+
+def test_repo_create_new_admin_is_active(db_session: Session):
+    """Unit test: Verify the regular create method sets is_active=True."""
+    repo = AdminRepository(db_session)
+    admin_in = AdminCreate(
+        username="new_admin_repo_test",
+        password="securepassword123",
+        email_phone="newadmin_repo@test.com"
+    )
+    hashed_password = "mock_hashed_password"
+    
+    admin = repo.create(admin_in, hashed_password)
+    
+    assert admin is not None
+    assert admin.username == "new_admin_repo_test"
+    assert admin.is_active is True
+
+# --- Authentication & Login Tests ---
 
 def test_admin_login_success(client, admin_user):
     """Test successful admin login."""

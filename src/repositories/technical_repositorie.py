@@ -43,7 +43,9 @@ class TechnicalRepository:
                 password=hashed_password,
                 phone_number=tech_in.phone_number,
                 name=tech_in.name,
-                # Role and status defaults are assumed to be handled by the model
+                role="technical",
+                status="free",
+                is_active=True
             )
             self.db.add(db_tech)
             self.db.commit()
@@ -97,7 +99,8 @@ class TechnicalRepository:
         db_team = TechnicalTeam(
             team_name=team_in.team_name,
             description=team_in.description,
-            team_lead_id=team_in.team_lead_id
+            team_lead_id=team_in.team_lead_id,
+            is_active=True
         )
         try:
             self.db.add(db_team)
