@@ -1,4 +1,45 @@
 
+from sqlalchemy.orm import Session
+from src.repositories.technical_repositorie import TechnicalRepository
+from src.models.technical_model import TechnicalCreate, TechnicalTeamCreate
+
+# --- Repository Unit Tests ---
+
+def test_repo_create_technical_is_active(db_session: Session):
+    """Unit test: Verify that the create method for technical accounts sets is_active=True."""
+    repo = TechnicalRepository(db_session)
+    tech_in = TechnicalCreate(
+        username="new_tech_repo_test",
+        password="securepassword123",
+        name="Test Technician",
+        phone_number="+12345678901"
+    )
+    hashed_password = "mock_hashed_password"
+    
+    tech = repo.create(tech_in, hashed_password)
+    
+    assert tech is not None
+    assert tech.username == "new_tech_repo_test"
+    assert tech.is_active is True
+    assert tech.role == "technical"
+    assert str(tech.status).lower().find("free") != -1
+
+def test_repo_create_technical_team_is_active(db_session: Session):
+    """Unit test: Verify that the create_team method for technical teams sets is_active=True."""
+    repo = TechnicalRepository(db_session)
+    team_in = TechnicalTeamCreate(
+        team_name="Elite Repair Team Repo",
+        description="Handles complex engine repairs"
+    )
+    
+    team = repo.create_team(team_in)
+    
+    assert team is not None
+    assert team.team_name == "Elite Repair Team Repo"
+    assert team.is_active is True
+
+# --- Authentication & Profile Tests ---
+
 def test_technical_login_success(client, technical_user):
     """Test successful technical staff login."""
     response = client.post(
