@@ -33,6 +33,7 @@ class Vehicle(Base):
     fuel_type    = Column(SQLEnum(FuelType, native_enum=False), nullable=False)
     drive_type   = Column(SQLEnum(DriveType, native_enum=False), nullable=False)
     transmission = Column(SQLEnum(TransmissionType, native_enum=False), nullable=False)
+    img_url = Column(String(255), nullable=True)
     # relation 
     model = relationship("Model",back_populates="vehicle")
     product_links = relationship("ProductVehicleCompatibility", back_populates="vehicle")
