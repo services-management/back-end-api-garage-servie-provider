@@ -142,7 +142,7 @@ def list_products_all(
 ):
     svc = ProductController(db)
     if current_user:
-        print(f"User {current_user.id} ({current_user.role}) is viewing products.")
+        print(f"User {current_user.admin_id} ({current_user.role}) is viewing products.")
     else:
         print("A Guest is viewing products.")
     return svc.list_product(skip=skip, limit=limit)
