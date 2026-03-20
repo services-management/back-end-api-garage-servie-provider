@@ -16,6 +16,8 @@ class AdminCreate(BaseModel):
     password: str = Field(min_length=8)
     # Match the email_phone field in the AdminModel
     email_phone: str = Field(description="Email or phone number required for contact/recovery.")
+    # Optional Telegram Chat ID for bot notifications
+    telegram_chat_id: Optional[str] = Field(None, description="Telegram Chat ID for receiving bot notifications.")
 
     @validator('email_phone')
     def validate_contact(cls, v):
@@ -38,6 +40,7 @@ class AdminOut(BaseModel):
    admin_id : uuid.UUID
    username : str
    email_phone : Optional[str]
+   telegram_chat_id: Optional[str] = None
    role: str
    is_active: bool
    telegram_magic_link: Optional[str] = None
@@ -50,6 +53,7 @@ class AdminUpdate(BaseModel):
     username: Optional[str] = Field(None, min_length=4, max_length=50)
     password: Optional[str] = Field(None, min_length=8)
     email_phone: Optional[str] = None
+    telegram_chat_id: Optional[str] = Field(None, description="Telegram Chat ID for receiving bot notifications.")
     is_active: Optional[bool] = None
 
 # Schema for loggin in 
@@ -61,8 +65,10 @@ class AdminLogin(BaseModel):
 # Schema for returning a secure token upon successful login 
 class Token(BaseModel):
     '''Defines the structure of the authentication token returned to the client.'''
-    access_token : str
-    token_type : str = 'bearer'
+    access_token: str
+    refresh_token: str
+    token_type: str = 'bearer'
+    expires_in: int = 1800  # 30 minutes in seconds
 
 class RejectBookingRequest(BaseModel):
     reason: str

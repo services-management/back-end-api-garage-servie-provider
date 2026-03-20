@@ -16,7 +16,7 @@ from src.repositories.technical_repositorie import TechnicalRepository
 from src.repositories.booking_repositories import BookingRepository
 from src.schemas.auth import Token  # Token model is reused
 # Security/Auth Utilities
-from src.service.auth import create_access_token  # JWT creation utility
+from src.service.auth import create_token_pair, ACCESS_TOKEN_EXPIRE_MINUTES  # JWT creation utility
 from fastapi import Query
 from datetime import date
 from uuid import UUID
@@ -45,7 +45,7 @@ def login_technical(
     controller: TechnicalController = Depends(get_technical_controller)
 ):
     """
-    Authenticates a Technical staff member and returns a JWT token.
+    Authenticates a Technical staff member and returns JWT access and refresh tokens.
     """
     technical_user = controller.authenticate_technical(tech_in)
     if not technical_user:
@@ -56,11 +56,15 @@ def login_technical(
         )
     
     # Payload for JWT: Use technical_id and role
-    # Note: Ensure the role is "technical"
-    access_token = create_access_token(
-        data={"sub": str(technical_user.technical_id), "role": technical_user.role}
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
+    token_data = {"sub": str(technical_user.technical_id), "role": technical_user.role}
+    access_token, refresh_token = create_token_pair(token_data)
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    }
 
 
 ## 2. Technical Self-Management (Requires Technical Auth)
@@ -102,9 +106,15 @@ async def read_worklist(
     team_id: UUID, 
     target_date: date = Query(default=date.today()),
     service: TechnicalController = Depends(get_technical_controller),
-    current_user = Depends(get_current_technical_user) # Security check
+    current_user: TechnicalOut = Depends(get_current_technical_user)
 ):
     """Returns all jobs for the mechanic's specific team."""
+    # SECURITY: Verify user can only access their own team's worklist
+    if not current_user.team_id or str(current_user.team_id) != str(team_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. You can only view your own team's worklist."
+        )
     return await service.get_my_worklist(team_id, target_date)
 
 @router.patch("/jobs/{booking_id}/status", summary="Update Progress")
@@ -112,7 +122,19 @@ async def change_status(
     booking_id: int,
     status: str, # "IN_PROGRESS" or "COMPLETED"
     service: TechnicalController = Depends(get_technical_controller),
-    current_user = Depends(get_current_technical_user)
+    current_user: TechnicalOut = Depends(get_current_technical_user)
 ):
     """Updates the car status and pings the customer automatically."""
-    return await service.update_job_status(booking_id, status)
+    # SECURITY: Validate status value
+    valid_statuses = ["IN_PROGRESS", "COMPLETED"]
+    if status not in valid_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+        )
+    
+    return await service.update_job_status(
+        booking_id=booking_id, 
+        new_status=status,
+        technical_user=current_user
+    )

@@ -1,13 +1,19 @@
 import os
 import pytest
+
+# SECURITY: Set required environment variables for testing BEFORE importing the app
+os.environ["TESTING"] = "True"
+os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only-do-not-use-in-production"
+os.environ["S3_ENDPOINT_URL"] = "https://test-s3.example.com"
+os.environ["S3_ACCESS_KEY"] = "test-access-key"
+os.environ["S3_SECRET_KEY"] = "test-secret-key"
+os.environ["S3_BUCKET"] = "test-bucket"
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from unittest.mock import patch, MagicMock
-
-# 1. Set test mode and mock slow startup logic BEFORE importing the app
-os.environ["TESTING"] = "True"
 
 from src.app.app import app
 from src.config.database import Base, get_db

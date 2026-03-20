@@ -1,6 +1,6 @@
 
 import uuid
-from typing import Optional
+from typing import Optional, List
 
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,14 @@ class AdminRepository:
     def __init__(self, db: Session):
         # the database session is injected here
         self.db = db
+
+    def get_active_admins_with_telegram(self) -> List[adminModel]:
+        """Get all active admins who have telegram_chat_id set."""
+        return self.db.query(adminModel).filter(
+            adminModel.is_active.is_(True),
+            adminModel.telegram_chat_id.isnot(None),
+            adminModel.telegram_chat_id != ""
+        ).all()
 
     def create_default_admin(self, username: str, password: str, email_phone: str, is_active: bool = True) -> adminModel:
         """

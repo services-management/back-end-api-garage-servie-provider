@@ -1,3 +1,4 @@
+import secrets
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -23,17 +24,20 @@ app = FastAPI(
 )
 configure_mappers()
 origins = [
-    "https://garas-admin.domrey.online/",      # Your local React/Next.js frontend  
+    "https://garas-admin.domrey.online",      # Your production frontend
+    "http://localhost:3000",                  # Local development
 ]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Allows all origins, change to specific domain in production
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],  # Explicit methods only
+    allow_headers=["Authorization", "Content-Type"],  # Explicit headers only
 )
 DEFAULT_ADMIN_USERNAME = "super_admin"
-DEFAULT_ADMIN_PASSWORD = "change_me_123"
+# SECURITY: Generate a secure random password on first startup
+# In production, this should be logged once and then the admin should change it
+DEFAULT_ADMIN_PASSWORD = secrets.token_urlsafe(16)
 
 @app.on_event("startup")
 async def startup_event():
@@ -101,10 +105,12 @@ def read_root():
 def test_db_connection(db: Session = Depends(get_db)):
     try:
         db.execute(text("SELECT 1"))
-        print("Database connection successful!")
         return {"message": "Database connection successful!"}
-    except Exception as e:
-        return {"message": f"Database connection failed: {e}"}
+    except Exception:
+        # SECURITY: Don't expose internal error details
+        import logging
+        logging.error("Database connection failed", exc_info=True)
+        return {"message": "Service unavailable"}, 503
 
 @app.get("/health")
 def health_check():

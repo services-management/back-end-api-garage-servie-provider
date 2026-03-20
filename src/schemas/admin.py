@@ -26,5 +26,8 @@ class adminModel(Base):
     # The Python attribute is 'email_phone', but the DB column is explicitly 'Email_phone'
     email_phone = Column("Email_phone", String, unique=True, nullable=True)
 
+    # Telegram Chat ID for bot notifications
+    telegram_chat_id = Column(String, unique=True, nullable=True)
+
     # Active Status
     is_active = Column(Boolean, default=True, nullable=False)

@@ -26,22 +26,33 @@ class Settings(BaseSettings):
     # DB driver: 'psycopg' (psycopg3) or 'psycopg2'
     DB_DRIVER: str = os.getenv("DB_DRIVER", "psycopg2")
     # telegram bot token 
-
     DOMAIN: str = os.getenv("DOMAIN", "http://localhost:8000")
     TELEGRAM_BOT_TOKEN: Optional[str] = None
     TELEGRAM_BOT_USERNAME: Optional[str] = os.getenv("TELEGRAM_BOT_USERNAME", "my_garage_service_bot")
-    ADMIN_CHAT_ID: Optional[str] = os.getenv("ADMIN_CHAT_ID", "")  # Replace with actual admin chat ID
     # JWT settings (optional - only needed for authentication endpoints)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     SECRET_KEY: Optional[str] = os.getenv("SECRET_KEY", "a_very_secret_key_change_in_production")
     ALGORITHM: str = "HS256"
 
-    # S3/MinIO settings
-    S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "fsgw.domrey.online")
-    S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "EzFx5KQ4H6QalA0ww6cv")
-    S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "4dJQYXt4NQ9aizXiNP8OfBM7Fw0Gda07WO81hy1P")
-    S3_BUCKET: str = os.getenv("S3_BUCKET", "garas-fixing")
+    # S3/MinIO settings - MUST be set via environment variables
+    S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "")
+    S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "")
+    S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "")
+    S3_BUCKET: str = os.getenv("S3_BUCKET", "")
     S3_REGION: str = os.getenv("S3_REGION", "us-east-1")
+
+    @model_validator(mode="after")
+    def validate_s3_settings(self):
+        """Ensure S3 settings are properly configured."""
+        if not self.S3_ENDPOINT_URL:
+            raise ValueError("S3_ENDPOINT_URL environment variable must be set")
+        if not self.S3_ACCESS_KEY:
+            raise ValueError("S3_ACCESS_KEY environment variable must be set")
+        if not self.S3_SECRET_KEY:
+            raise ValueError("S3_SECRET_KEY environment variable must be set")
+        if not self.S3_BUCKET:
+            raise ValueError("S3_BUCKET environment variable must be set")
+        return self
 
     @model_validator(mode="after")
     def validate_s3_endpoint(self):

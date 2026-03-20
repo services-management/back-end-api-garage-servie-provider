@@ -80,28 +80,61 @@ class TechnicalController:
         # Ensure you use the repo function we built earlier: get_technical_jobs
         return self.booking_repo.get_technical_jobs(team_id, target_date)
 
-    async def update_job_status(self, booking_id: int, status: str):
+    def _sanitize_telegram_message(self, text: str) -> str:
+        """Sanitize text to prevent Telegram markdown injection."""
+        if not text:
+            return ""
+        # Escape special Telegram markdown characters
+        # Characters that need escaping in Telegram MarkdownV2: _ * [ ] ( ) ~ ` > # + - = | { } . !
+        escape_chars = r'_*[]()~`>#+-=|{}.!'
+        for char in escape_chars:
+            text = text.replace(char, f'\\{char}')
+        return text
+
+    async def update_job_status(self, booking_id: int, new_status: str, technical_user: TechnicalModel):
         """
         1. Updates status in DB
         2. Sends Telegram alert based on progress
+        3. Validates booking belongs to user's team
         """
-        # Use self.booking_repo consistently
-        booking = self.booking_repo.update_booking_status(booking_id, status)
+        # SECURITY: Fetch booking and verify it belongs to user's team
+        booking = self.booking_repo.get(booking_id)
         
         if not booking:
-            return None
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found."
+            )
+        
+        # SECURITY: Verify booking is assigned to user's team
+        if not booking.technical_team_id or str(booking.technical_team_id) != str(technical_user.team_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied. You can only update bookings assigned to your team."
+            )
+        
+        # Update the booking status
+        updated_booking = self.booking_repo.update_booking_status(booking_id, new_status)
+        
+        if not updated_booking:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update booking status."
+            )
 
         # 2. Telegram Trigger for Status Updates
-        if booking.customer and booking.customer.telegram_chat_id:
+        if updated_booking.customer and updated_booking.customer.telegram_chat_id:
             # Define friendly messages based on the status
-            if status == "IN_PROGRESS":
+            if new_status == "IN_PROGRESS":
                 status_text = "is now being worked on 🔧"
-            elif status == "COMPLETED":
+            elif new_status == "COMPLETED":
                 status_text = "is READY for pickup! ✅"
             else:
-                status_text = f"status has been updated to: {status}"
+                status_text = f"status has been updated to: {new_status}"
 
-            msg = f"🚗 *Service Update:* Your {booking.car_make} {status_text}"
-            await telegram_client.send_message(booking.customer.telegram_chat_id, msg)
+            # SECURITY: Sanitize car_make to prevent Telegram markdown injection
+            safe_car_make = self._sanitize_telegram_message(updated_booking.car_make)
+            msg = f"🚗 *Service Update:* Your {safe_car_make} {status_text}"
+            await telegram_client.send_message(updated_booking.customer.telegram_chat_id, msg)
             
-        return booking
+        return updated_booking

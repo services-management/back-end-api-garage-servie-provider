@@ -26,7 +26,7 @@ from src.repositories.booking_repositories import BookingRepository
 from src.schemas.auth import Token
 from src.models.admin_model import RejectBookingRequest, AssignTeamRequest
 # --- Security Dependencies ---
-from src.service.auth import create_access_token
+from src.service.auth import create_token_pair, ACCESS_TOKEN_EXPIRE_MINUTES
 # --- Router Initialization ---
 router = APIRouter(
     prefix="/admin",
@@ -68,7 +68,7 @@ async def login_admin(
     controller: AdminController = Depends(get_admin_controller)
 ):
     """
-    Authenticates an Admin user and returns a JWT token upon success.
+    Authenticates an Admin user and returns JWT access and refresh tokens upon success.
     """
     admin = controller.authentication_admin(admin_in)
     if not admin:
@@ -78,10 +78,15 @@ async def login_admin(
         )
     
     # Payload for JWT: Use admin_id and role
-    access_token = create_access_token(
-        data={"sub": str(admin.admin_id), "role": admin.role}
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
+    token_data = {"sub": str(admin.admin_id), "role": admin.role}
+    access_token, refresh_token = create_token_pair(token_data)
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    }
 
 
 ## 2. Admin Management Endpoints (Require Admin Authentication)
@@ -259,3 +264,23 @@ async def deactivate_technical_acc(
 ):
     """Deactivates a Technical account by setting is_active to False."""
     return controller.deactivate_technical(technical_id)
+
+
+@router.get("/accounts/admins/{admin_id}/magic-link", summary="Get Admin Magic Link")
+async def get_admin_magic_link(
+    admin_id: UUID,
+    controller: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """Retrieve the Telegram magic link for an existing admin account."""
+    return controller.get_admin_magic_link(admin_id)
+
+
+@router.get("/accounts/technicals/{technical_id}/magic-link", summary="Get Technical Magic Link")
+async def get_technical_magic_link(
+    technical_id: UUID,
+    controller: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """Retrieve the Telegram magic link for an existing technical account."""
+    return controller.get_technical_magic_link(technical_id)
