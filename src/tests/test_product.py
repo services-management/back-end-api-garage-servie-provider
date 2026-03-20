@@ -17,6 +17,7 @@ def test_create_product_success(authenticated_admin_client):
         json={
             "name": "Test Product",
             "selling_price": "10.00",      # String for Decimal
+            "price_adjustment": "2.50",    # String for Decimal (optional)
             "unit_cost": "5.00",           # String for Decimal (optional)
             "category_name": "Test Category",
             "description": "A product for testing",
@@ -75,6 +76,7 @@ def test_get_product_success(authenticated_admin_client):
     product_data = {
         "name": "Engine Oil",
         "selling_price": "29.99",       # use string for Decimal
+        "price_adjustment": "5.00",     # use string for Decimal (optional)
         "unit_cost": "15.00",
         "category_name": "Lubricants",
         "description": "High quality engine oil",

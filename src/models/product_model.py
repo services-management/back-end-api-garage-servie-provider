@@ -62,6 +62,7 @@ class ProductCreate(ProductBase):
 class ProductUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, example="Brake Pad - Premium")
     selling_price: Optional[Decimal] = Field(None, gt=Decimal("0"), example=Decimal("21.99"))
+    price_adjustment: Optional[Decimal] = Field(None, ge=Decimal("0"), example=Decimal("5.00"), description="Optional price adjustment for specific vehicle fitments.")
     unit_cost: Optional[Decimal] = Field(None, ge=Decimal("0"), example=Decimal("13.00"))
     description :Optional[str] = Field(None,min_length=1,max_length=255)
     category_name: Optional[str] = Field(None, example="oil")
@@ -78,7 +79,7 @@ class ProductUpdate(BaseModel):
             raise ValueError("Product name cannot be blank.")
         return v
 
-    @validator("selling_price", "unit_cost", pre=True)
+    @validator("selling_price", "unit_cost", "price_adjustment", pre=True)
     def to_decimal_update(cls, v):
         if v is None:
             return v
