@@ -96,8 +96,24 @@ def admin_token(client, admin_user):
 
 @pytest.fixture(scope="function")
 def authenticated_admin_client(client, admin_token):
-    client.headers["Authorization"] = f"Bearer {admin_token}"
-    return client
+    """Create a separate client instance with admin authentication."""
+    # Create a new TestClient to avoid header conflicts with other authenticated clients
+    from fastapi.testclient import TestClient
+    from src.app.app import app
+    from src.config.database import get_db
+    
+    # Get the db_session from the existing client's dependency override
+    db_session = app.dependency_overrides.get(get_db, lambda: None)()
+    if db_session is None:
+        # Fallback: use the existing client's headers but make a copy
+        new_client = client
+    else:
+        # Create a fresh client with the same db_session
+        app.dependency_overrides[get_db] = lambda: db_session
+        new_client = TestClient(app)
+    
+    new_client.headers["Authorization"] = f"Bearer {admin_token}"
+    return new_client
 
 @pytest.fixture(scope="function")
 def technical_user(db_session):
@@ -123,8 +139,24 @@ def technical_token(client, technical_user):
 
 @pytest.fixture(scope="function")
 def authenticated_technical_client(client, technical_token):
-    client.headers["Authorization"] = f"Bearer {technical_token}"
-    return client
+    """Create a separate client instance with technical authentication."""
+    # Create a new TestClient to avoid header conflicts with other authenticated clients
+    from fastapi.testclient import TestClient
+    from src.app.app import app
+    from src.config.database import get_db
+    
+    # Get the db_session from the existing client's dependency override
+    db_session = app.dependency_overrides.get(get_db, lambda: None)()
+    if db_session is None:
+        # Fallback: use the existing client's headers but make a copy
+        new_client = client
+    else:
+        # Create a fresh client with the same db_session
+        app.dependency_overrides[get_db] = lambda: db_session
+        new_client = TestClient(app)
+    
+    new_client.headers["Authorization"] = f"Bearer {technical_token}"
+    return new_client
 
 @pytest.fixture(scope="function")
 def test_category(db_session):
