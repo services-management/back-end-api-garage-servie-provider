@@ -44,6 +44,7 @@ class ServiceType(str, Enum):
 class BookingStatus(str, Enum):
     PENDING = "Pending"
     CONFIRMED = "Confirmed"
+    IN_PROGRESS = "In Progress"
     CANCELLED = "Cancelled"
     REJECTED = "Rejected"
     COMPLETED = "Completed"

@@ -154,3 +154,46 @@ class UserVehicle(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     user = relationship("User", backref="saved_vehicles")
+
+class TechnicalReport(Base):
+    """Technical report submitted after completing a booking. One report per booking."""
+    __tablename__ = "technical_reports"
+
+    report_id = Column(Integer, primary_key=True, index=True)
+    booking_id = Column(Integer, ForeignKey("bookings.booking_id"), unique=True, nullable=False)
+    technical_id = Column(UUID(as_uuid=True), ForeignKey("technical.technical_id"), nullable=False)
+    
+    # Vehicle Information
+    vehicle_type = Column(String(50), nullable=True)  # ប្រភេទរថយន្ត
+    vin_number = Column(String(50), nullable=True)  # លេខតួ
+    fuel_type = Column(String(50), nullable=True)  # ប្រភេទសាំង
+    fuel_quantity = Column(String(50), nullable=True)  # ចំនួនសាំង
+    hybrid_type = Column(String(50), nullable=True)  # ប្រភេទ Hybrid
+    
+    # Checklist Items (stored as JSON for flexibility)
+    # Each item has: name, status (yes/no), notes
+    checklist_items = Column(Text, nullable=True)  # JSON array of checklist items
+    
+    # Work Description & Parts
+    work_description = Column(Text, nullable=True)  # Description of work performed
+    parts_used = Column(Text, nullable=True)  # Description of parts used
+    additional_notes = Column(Text, nullable=True)  # Additional notes or observations
+    
+    # Media evidence (stored as JSON array of URLs)
+    image_urls = Column(Text, nullable=True)  # JSON array of image URLs
+    video_urls = Column(Text, nullable=True)  # JSON array of video URLs
+    
+    # Approval status
+    is_approved = Column(Boolean, default=False, nullable=False)
+    approved_by = Column(UUID(as_uuid=True), ForeignKey("admin.admin_id"), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    admin_feedback = Column(Text, nullable=True)  # Feedback from admin if rejected
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    booking = relationship("Booking", backref=backref("technical_report", uselist=False))
+    technical = relationship("TechnicalModel", backref="reports")
+    approver = relationship("adminModel", backref="approved_reports")

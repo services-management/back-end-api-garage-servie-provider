@@ -370,6 +370,14 @@ class BookingRepository:
     def update_booking_status(self, booking_id: int, new_status: str) -> Booking:
         booking = self.get(booking_id) # Using BaseRepository get
         if booking:
+            # Convert string to enum if needed
+            if isinstance(new_status, str):
+                # Handle both "COMPLETED" and "Completed" formats
+                status_upper = new_status.upper()
+                for bs in BookingStatus:
+                    if bs.name == status_upper or bs.value == new_status:
+                        new_status = bs
+                        break
             booking.status = new_status
             self.db.commit()
             self.db.refresh(booking)
