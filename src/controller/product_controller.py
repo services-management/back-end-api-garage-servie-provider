@@ -54,6 +54,7 @@ class ProductController:
         self,
         name: str,
         selling_price: Decimal | float,
+        price_adjustment: Optional[Decimal | float] = None,
         unit_cost: Optional[Decimal | float] = None,
         category_name: Optional[str] = None,
         description: Optional[str] = None,   # NEW
@@ -81,6 +82,7 @@ class ProductController:
         product = self.product_repo.create(
             name=name,
             selling_price=selling_price,
+            price_adjustment=price_adjustment,
             unit_cost=unit_cost,
             category_id=category_id,
             description=description,
@@ -114,6 +116,7 @@ class ProductController:
         product_id: int,
         name: Optional[str] = None,
         selling_price: Optional[Decimal | float] = None,
+        price_adjustment: Optional[Decimal | float] = None,
         unit_cost: Optional[Decimal | float] = None,
         category_name: Optional[str] = None,
         description: Optional[str] = None,  # NEW
@@ -153,6 +156,7 @@ class ProductController:
             product_id=product_id,
             name=name.strip() if isinstance(name, str) else name,
             selling_price=selling_price,
+            price_adjustment=price_adjustment,
             unit_cost=unit_cost,
             category_id=resolved_category_id,
             description=description,
