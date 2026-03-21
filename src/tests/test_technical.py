@@ -522,8 +522,9 @@ def test_admin_reject_report_with_feedback(authenticated_admin_client, test_book
 
 def test_cannot_complete_booking_without_report(authenticated_technical_client, test_booking, test_team, technical_user, db_session):
     """Test that booking cannot be marked COMPLETED without a report."""
-    # Assign technical to team
+    # Assign technical to team and booking to the same team
     technical_user.team_id = test_team.team_id
+    test_booking.technical_team_id = test_team.team_id
     db_session.commit()
     
     # Try to mark as completed without report
@@ -535,8 +536,9 @@ def test_cannot_complete_booking_without_report(authenticated_technical_client, 
 
 def test_cannot_complete_booking_with_unapproved_report(authenticated_technical_client, test_booking, test_team, technical_user, db_session):
     """Test that booking cannot be marked COMPLETED with unapproved report."""
-    # Assign technical to team
+    # Assign technical to team and booking to the same team
     technical_user.team_id = test_team.team_id
+    test_booking.technical_team_id = test_team.team_id
     db_session.commit()
     
     # Create a report (unapproved by default)
@@ -553,14 +555,15 @@ def test_cannot_complete_booking_with_unapproved_report(authenticated_technical_
         f"/technical/jobs/{test_booking.booking_id}/status?status=COMPLETED"
     )
     assert response.status_code == 400
-    assert "pending" in response.json()["detail"].lower() or "approval" in response.json()["detail"].lower()
+    assert "approved" in response.json()["detail"].lower()
 
 def test_can_complete_booking_with_approved_report(authenticated_technical_client, authenticated_admin_client, test_booking, test_team, technical_user, db_session):
     """Test that booking can be marked COMPLETED after report is approved."""
     from src.core.enums import BookingStatus
     
-    # Assign technical to team
+    # Assign technical to team and booking to the same team
     technical_user.team_id = test_team.team_id
+    test_booking.technical_team_id = test_team.team_id
     db_session.commit()
     
     # Create a report

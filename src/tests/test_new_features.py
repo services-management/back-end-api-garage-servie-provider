@@ -25,6 +25,71 @@ def test_technical_creation_magic_link(authenticated_admin_client: TestClient):
     assert "telegram_magic_link" in data
     assert "start=tech_" in data["telegram_magic_link"]
 
+
+def test_get_admin_magic_link(authenticated_admin_client: TestClient):
+    """Test retrieving magic link for an existing admin."""
+    # First create an admin
+    payload = {
+        "username": "admin_for_magic_link",
+        "password": "securepassword123",
+        "email_phone": "admin_magic@example.com"
+    }
+    create_response = authenticated_admin_client.post("/admin/", json=payload)
+    assert create_response.status_code == 201
+    admin_id = create_response.json()["admin_id"]
+
+    # Now retrieve the magic link
+    response = authenticated_admin_client.get(f"/admin/accounts/admins/{admin_id}/magic-link")
+    assert response.status_code == 200
+    data = response.json()
+    assert "admin_id" in data
+    assert "username" in data
+    assert "telegram_magic_link" in data
+    assert "telegram_chat_id" in data
+    assert data["admin_id"] == admin_id
+    assert data["username"] == "admin_for_magic_link"
+    assert "start=admin_" in data["telegram_magic_link"]
+
+
+def test_get_technical_magic_link(authenticated_admin_client: TestClient):
+    """Test retrieving magic link for an existing technical."""
+    # First create a technical
+    payload = {
+        "username": "tech_for_magic_link",
+        "password": "techpassword123",
+        "name": "Magic Link Tech",
+        "phone_number": "+19998887779"
+    }
+    create_response = authenticated_admin_client.post("/admin/technical", json=payload)
+    assert create_response.status_code == 201
+    technical_id = create_response.json()["technical_id"]
+
+    # Now retrieve the magic link
+    response = authenticated_admin_client.get(f"/admin/accounts/technicals/{technical_id}/magic-link")
+    assert response.status_code == 200
+    data = response.json()
+    assert "technical_id" in data
+    assert "username" in data
+    assert "telegram_magic_link" in data
+    assert "telegram_chat_id" in data
+    assert data["technical_id"] == technical_id
+    assert data["username"] == "tech_for_magic_link"
+    assert "start=tech_" in data["telegram_magic_link"]
+
+
+def test_get_admin_magic_link_not_found(authenticated_admin_client: TestClient):
+    """Test retrieving magic link for non-existent admin."""
+    fake_admin_id = "00000000-0000-0000-0000-000000000000"
+    response = authenticated_admin_client.get(f"/admin/accounts/admins/{fake_admin_id}/magic-link")
+    assert response.status_code == 404
+
+
+def test_get_technical_magic_link_not_found(authenticated_admin_client: TestClient):
+    """Test retrieving magic link for non-existent technical."""
+    fake_technical_id = "00000000-0000-0000-0000-000000000000"
+    response = authenticated_admin_client.get(f"/admin/accounts/technicals/{fake_technical_id}/magic-link")
+    assert response.status_code == 404
+
 def test_slideshow_workflow(authenticated_admin_client: TestClient, client: TestClient, db_session):
     # 1. Create a slide (Admin)
     payload = {

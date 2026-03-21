@@ -1,4 +1,6 @@
 from typing import Optional
+import os
+from pathlib import Path
 # from io import BytesIO
 # from jinja2 import Environment, FileSystemLoader
 #from weasyprint import HTML
@@ -6,6 +8,13 @@ import boto3
 from botocore.exceptions import ClientError
 
 from src.config.settings import settings
+
+# SECURITY: Allowed file types and size limits
+ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.pdf', '.gif', '.webp'}
+ALLOWED_CONTENT_TYPES = {
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'
+}
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 
 class S3Service:
@@ -22,6 +31,38 @@ class S3Service:
         )
         self.bucket = settings.S3_BUCKET
 
+    def _sanitize_s3_key(self, s3_key: str) -> str:
+        """Sanitize S3 key to prevent path traversal attacks."""
+        # Remove path traversal attempts
+        s3_key = s3_key.replace('..', '').replace('//', '/')
+        # Ensure key doesn't start with /
+        s3_key = s3_key.lstrip('/')
+        return s3_key
+
+    def _validate_file(self, file_path: str, content_type: str) -> None:
+        """Validate file before upload.
+        
+        Raises:
+            ValueError: If file is invalid
+        """
+        # Check file exists
+        if not os.path.exists(file_path):
+            raise ValueError("File not found")
+        
+        # Check file size
+        file_size = os.path.getsize(file_path)
+        if file_size > MAX_FILE_SIZE:
+            raise ValueError(f"File too large. Max size: {MAX_FILE_SIZE / 1024 / 1024}MB")
+        
+        # Validate content type
+        if content_type not in ALLOWED_CONTENT_TYPES:
+            raise ValueError(f"Invalid content type. Allowed: {', '.join(ALLOWED_CONTENT_TYPES)}")
+        
+        # Validate file extension
+        ext = Path(file_path).suffix.lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            raise ValueError(f"Invalid file extension. Allowed: {', '.join(ALLOWED_EXTENSIONS)}")
+
     def upload_file(
         self, file_path: str, s3_key: str, content_type: str = "image/jpeg"
     ) -> Optional[str]:
@@ -36,6 +77,10 @@ class S3Service:
             The S3 URL of the uploaded file, or None if upload failed
         """
         try:
+            # SECURITY: Sanitize and validate
+            s3_key = self._sanitize_s3_key(s3_key)
+            self._validate_file(file_path, content_type)
+            
             self.s3_client.upload_file(
                 file_path,
                 self.bucket,
@@ -46,7 +91,7 @@ class S3Service:
             # Construct the URL
             url = f"{settings.S3_ENDPOINT_URL}/{self.bucket}/{s3_key}"
             return url
-        except ClientError as e:
+        except (ClientError, ValueError) as e:
             print(f"Error uploading file to S3: {e}")
             return None
 
@@ -64,6 +109,17 @@ class S3Service:
             The S3 URL of the uploaded file, or None if upload failed
         """
         try:
+            # SECURITY: Sanitize s3_key
+            s3_key = self._sanitize_s3_key(s3_key)
+            
+            # Validate content type
+            if content_type not in ALLOWED_CONTENT_TYPES:
+                raise ValueError(f"Invalid content type. Allowed: {', '.join(ALLOWED_CONTENT_TYPES)}")
+            
+            # Validate file size
+            if len(file_bytes) > MAX_FILE_SIZE:
+                raise ValueError(f"File too large. Max size: {MAX_FILE_SIZE / 1024 / 1024}MB")
+            
             self.s3_client.put_object(
                 Bucket=self.bucket,
                 Key=s3_key,
@@ -74,7 +130,7 @@ class S3Service:
             # Construct the URL
             url = f"{settings.S3_ENDPOINT_URL}/{self.bucket}/{s3_key}"
             return url
-        except ClientError as e:
+        except (ClientError, ValueError) as e:
             print(f"Error uploading file to S3: {e}")
             return None
 

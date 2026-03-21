@@ -5,6 +5,7 @@ from src.models.booking_model import BookingCreate
 from src.schemas.booking import User
 from src.config.telegram_client import telegram_client
 from src.repositories.user_respositories import UserRepository
+from src.repositories.admin_repositories import AdminRepository
 from src.config.settings import settings
 import logging
 from src.schemas.booking import Booking
@@ -15,6 +16,7 @@ class BookingService:
         self.db = db
         self.booking_repo = BookingRepository(db)
         self.user_repo = UserRepository(db)
+        self.admin_repo = AdminRepository(db)
 
 
     async def _send_status_notification(self, user, booking):
@@ -131,13 +133,15 @@ class BookingService:
             traceback.print_exc()
             raise HTTPException(status_code=500, detail="An internal error occurred.")
         
-    async def _notify_admin_of_new_booking(self, booking: Booking, user: User):
+    async def _notify_admins_of_new_booking(self, booking: Booking, user: User):
         """
-        Alerts the shop owner/admin via Telegram.
+        Alerts all active admins with telegram_chat_id via Telegram.
         """
-        # 1. Check if Admin ID exists
-        if not hasattr(settings, 'ADMIN_CHAT_ID') or not settings.ADMIN_CHAT_ID:
-            logger.warning("Admin alert skipped: ADMIN_CHAT_ID not configured.")
+        # 1. Get all active admins with telegram_chat_id
+        admins = self.admin_repo.get_active_admins_with_telegram()
+        
+        if not admins:
+            logger.warning("Admin alert skipped: No active admins with telegram_chat_id found.")
             return
 
         # 2. Sanitize data (Prevents crashes if user types '<' or '>' in notes)
@@ -160,16 +164,23 @@ class BookingService:
             "👉 <a href='https://yourdashboard.com/bookings'>Open Admin Dashboard</a>"
         )
 
-        # 4. Send using the global telegram_client
-        try:
-            await telegram_client.send_message(
-                chat_id=settings.ADMIN_CHAT_ID,
-                text=admin_msg,
-                parse_mode="HTML" 
-            )
-            logger.info(f"✅ Admin notified for booking {booking.booking_id}")
-        except Exception as e:
-            logger.error(f"❌ Telegram Admin Alert Failed: {e}")
+        # 4. Send to all admins with telegram_chat_id
+        sent_count = 0
+        for admin in admins:
+            if admin.telegram_chat_id:
+                try:
+                    await telegram_client.send_message(
+                        chat_id=admin.telegram_chat_id,
+                        text=admin_msg,
+                        parse_mode="HTML" 
+                    )
+                    sent_count += 1
+                    logger.info(f"✅ Admin {admin.username} notified for booking {booking.booking_id}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to notify admin {admin.username}: {e}")
+        
+        if sent_count == 0:
+            logger.warning("Admin alert: No notifications were sent successfully.")
 
     async def update_booking_status(self, booking_id: str, new_status: str,admin_id: str = None):
 

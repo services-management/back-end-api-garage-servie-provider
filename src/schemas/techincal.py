@@ -25,6 +25,9 @@ class TechnicalModel(Base):
     # Contact
     phone_number = Column(String, unique=True, nullable=False)
 
+    # Telegram Chat ID for bot notifications
+    telegram_chat_id = Column(String, unique=True, nullable=True)
+
     # Identification
     name = Column(String, nullable=False)
 
