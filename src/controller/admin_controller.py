@@ -261,6 +261,31 @@ class AdminController:
         
         return teams[0]
 
+    async def add_staff_to_team(self, staff_id: UUID, team_id: UUID):
+        """Assigns a technical staff member to a team using IDs."""
+        # Verify staff exists
+        staff = self.tech_repo.get(staff_id)
+        if not staff:
+            raise HTTPException(status_code=404, detail="Technical staff not found.")
+        
+        # Verify team exists
+        team = self.tech_repo.get_team(team_id)
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found.")
+        
+        # Assign member to team
+        return self.tech_repo.assign_member_to_team(staff_id, team_id)
+    
+    async def remove_staff_from_team(self, staff_id: UUID):
+        """Removes a technical staff member from their team using ID."""
+        # Verify staff exists
+        staff = self.tech_repo.get(staff_id)
+        if not staff:
+            raise HTTPException(status_code=404, detail="Technical staff not found.")
+        
+        # Remove from team
+        return self.tech_repo.remove_member_from_team(staff_id)
+    
     async def add_staff_to_team_friendly(self, staff_name: str, team_name: str):
         """Allows Admin to type 'Add John Doe to Team Alpha'."""
         # 1. Resolve Human Names to UUIDs

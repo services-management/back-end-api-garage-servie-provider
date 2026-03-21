@@ -191,3 +191,121 @@ def test_provision_technical_account_conflict(authenticated_admin_client):
     response = authenticated_admin_client.post("/admin/technical", json=tech_data)
     assert response.status_code == 409
     # assert response.json()["detail"] == "Username taken."
+
+
+# --- Technical Team Management Tests ---
+
+def test_create_technical_team_success(authenticated_admin_client):
+    """Test creating a new technical team."""
+    team_data = {
+        "team_name": "Alpha Team",
+        "description": "Specialized in engine repair"
+    }
+    response = authenticated_admin_client.post("/admin/teams", json=team_data)
+    assert response.status_code == 201
+    data = response.json()
+    assert data["team_name"] == "Alpha Team"
+    assert data["description"] == "Specialized in engine repair"
+    assert "team_id" in data
+    assert data["is_active"] is True
+
+
+def test_list_technical_teams(authenticated_admin_client):
+    """Test listing all technical teams."""
+    # Create a team first
+    team_data = {
+        "team_name": "Gamma Team",
+        "description": "Test team for listing"
+    }
+    authenticated_admin_client.post("/admin/teams", json=team_data)
+
+    # List teams
+    response = authenticated_admin_client.get("/admin/teams")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    # Check that our created team is in the list
+    team_names = [t["team_name"] for t in data]
+    assert "Gamma Team" in team_names
+
+
+def test_add_member_to_team(authenticated_admin_client):
+    """Test adding a technical staff member to a team."""
+    # 1. Create a team
+    team_data = {
+        "team_name": "Team With Members",
+        "description": "Team for member testing"
+    }
+    team_response = authenticated_admin_client.post("/admin/teams", json=team_data)
+    assert team_response.status_code == 201
+    team_id = team_response.json()["team_id"]
+
+    # 2. Create a technical staff member
+    tech_data = {
+        "username": "tech_for_team",
+        "password": "techpassword123",
+        "name": "Team Member Tech",
+        "phone_number": "+19998887770"
+    }
+    tech_response = authenticated_admin_client.post("/admin/technical", json=tech_data)
+    assert tech_response.status_code == 201
+    technical_id = tech_response.json()["technical_id"]
+
+    # 3. Add member to team
+    response = authenticated_admin_client.post(f"/admin/teams/{team_id}/members/{technical_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["technical_id"] == technical_id
+    assert data["team_id"] == team_id
+
+
+def test_remove_member_from_team(authenticated_admin_client):
+    """Test removing a technical staff member from a team."""
+    # 1. Create a team
+    team_data = {
+        "team_name": "Team For Removal",
+        "description": "Team for removal testing"
+    }
+    team_response = authenticated_admin_client.post("/admin/teams", json=team_data)
+    assert team_response.status_code == 201
+    team_id = team_response.json()["team_id"]
+
+    # 2. Create a technical staff member
+    tech_data = {
+        "username": "tech_to_remove",
+        "password": "techpassword123",
+        "name": "Tech To Remove",
+        "phone_number": "+19998887771"
+    }
+    tech_response = authenticated_admin_client.post("/admin/technical", json=tech_data)
+    assert tech_response.status_code == 201
+    technical_id = tech_response.json()["technical_id"]
+
+    # 3. Add member to team first
+    add_response = authenticated_admin_client.post(f"/admin/teams/{team_id}/members/{technical_id}")
+    assert add_response.status_code == 200
+
+    # 4. Remove member from team
+    response = authenticated_admin_client.delete(f"/admin/teams/members/{technical_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["technical_id"] == technical_id
+    # After removal, team_id should be None
+    assert data["team_id"] is None
+
+
+def test_add_member_to_team_not_found(authenticated_admin_client):
+    """Test adding a non-existent member to a team returns 404."""
+    # Create a team first
+    team_data = {
+        "team_name": "Team For Not Found",
+        "description": "Team for not found testing"
+    }
+    team_response = authenticated_admin_client.post("/admin/teams", json=team_data)
+    team_id = team_response.json()["team_id"]
+
+    # Try to add non-existent technical
+    fake_technical_id = "00000000-0000-0000-0000-000000000000"
+    response = authenticated_admin_client.post(f"/admin/teams/{team_id}/members/{fake_technical_id}")
+    assert response.status_code == 404
