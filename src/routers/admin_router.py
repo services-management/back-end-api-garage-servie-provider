@@ -17,7 +17,7 @@ from src.models.admin_model import (AdminCreate, AdminLogin, AdminOut,
                                     AdminUpdate, InvoiceUpload)
 from src.models.booking_model import (AdminBookingCreate, BookingHistoryResponse)
 from src.models.technical_model import (  # Assuming you have a TechnicalOut
-    TechnicalCreate, TechnicalOut)
+    TechnicalCreate, TechnicalOut, TechnicalTeamCreate, TechnicalTeamOut)
 from src.models.booking_model import BookingStatus
 # Your Repositories (Used for dependency injection)
 from src.repositories.admin_repositories import AdminRepository
@@ -266,21 +266,73 @@ async def deactivate_technical_acc(
     return controller.deactivate_technical(technical_id)
 
 
-@router.get("/accounts/admins/{admin_id}/magic-link", summary="Get Admin Magic Link")
+@router.get("/accounts/admins/{admin_id}/magic-link", summary="Get admin Telegram magic link")
 async def get_admin_magic_link(
     admin_id: UUID,
     controller: AdminController = Depends(get_admin_controller),
     current_admin: AdminOut = Depends(get_current_admin_user)
 ):
-    """Retrieve the Telegram magic link for an existing admin account."""
+    """Retrieves the Telegram magic link for an admin account."""
     return controller.get_admin_magic_link(admin_id)
 
 
-@router.get("/accounts/technicals/{technical_id}/magic-link", summary="Get Technical Magic Link")
+@router.get("/accounts/technicals/{technical_id}/magic-link", summary="Get technical Telegram magic link")
 async def get_technical_magic_link(
     technical_id: UUID,
     controller: AdminController = Depends(get_admin_controller),
     current_admin: AdminOut = Depends(get_current_admin_user)
 ):
-    """Retrieve the Telegram magic link for an existing technical account."""
+    """Retrieves the Telegram magic link for a technical account."""
     return controller.get_technical_magic_link(technical_id)
+
+
+## 5. Technical Team Management Endpoints
+
+@router.post("/teams", response_model=TechnicalTeamOut, status_code=status.HTTP_201_CREATED, summary="Create Technical Team")
+async def create_technical_team(
+    team_in: TechnicalTeamCreate,
+    controller: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """
+    Creates a new technical team.
+    Team lead can be assigned later if not provided.
+    """
+    return await controller.create_new_team(team_in)
+
+
+@router.get("/teams", response_model=List[TechnicalTeamOut], summary="List all Technical Teams")
+async def list_technical_teams(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    controller: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """Retrieves a list of all technical teams."""
+    return await controller.list_all_teams(skip=skip, limit=limit)
+
+
+@router.post("/teams/{team_id}/members/{technical_id}", response_model=TechnicalOut, summary="Add Member to Team")
+async def add_member_to_team(
+    team_id: UUID,
+    technical_id: UUID,
+    controller: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """
+    Assigns a technical staff member to a specific team.
+    """
+    return await controller.add_staff_to_team(technical_id, team_id)
+
+
+@router.delete("/teams/members/{technical_id}", response_model=TechnicalOut, summary="Remove Member from Team")
+async def remove_member_from_team(
+    technical_id: UUID,
+    controller: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """
+    Removes a technical staff member from their current team.
+    The staff member remains active but is no longer assigned to any team.
+    """
+    return await controller.remove_staff_from_team(technical_id)
