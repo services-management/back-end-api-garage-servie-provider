@@ -1,9 +1,10 @@
 import re
 import uuid
 from typing import Literal, Optional, List
+from decimal import Decimal
 
 from pydantic import BaseModel, Field, validator
-from datetime import datetime
+from datetime import datetime, date
 # --- Status Enum/Literal (Important for validation) ---
 # Assuming these are the allowed statuses for a Technical use
 TechnicalStatus = Literal['free', 'busy', 'off_duty']
@@ -115,3 +116,148 @@ class Token(BaseModel):
     """Defines the structure of the authentication token returned to the client."""
     access_token: str
     token_type: str = 'bearer'
+
+# --- Performance Schemas ---
+
+class TechnicalPerformance(BaseModel):
+    """Performance metrics for a single technical staff member."""
+    technical_id: uuid.UUID
+    name: str
+    team_name: Optional[str] = None
+    total_jobs: int = 0
+    completed_jobs: int = 0
+    in_progress_jobs: int = 0
+    completion_rate: float = 0.0
+    total_revenue: Decimal = Decimal("0.00")
+    
+    class Config:
+        from_attributes = True
+
+class TeamPerformance(BaseModel):
+    """Performance metrics for a technical team."""
+    team_id: uuid.UUID
+    team_name: str
+    team_lead_name: Optional[str] = None
+    member_count: int = 0
+    total_jobs: int = 0
+    completed_jobs: int = 0
+    in_progress_jobs: int = 0
+    completion_rate: float = 0.0
+    total_revenue: Decimal = Decimal("0.00")
+    members: List[TechnicalPerformance] = []
+    
+    class Config:
+        from_attributes = True
+
+class PerformanceDateRange(BaseModel):
+    """Schema for date range filter in performance queries."""
+    start_date: date
+    end_date: date
+
+# --- Technical Report Schemas ---
+
+class ChecklistItem(BaseModel):
+    """Individual checklist item from the vehicle check list."""
+    name: str = Field(..., description="Name of the checklist item (e.g., 'ចង្កៀងមុខស្ដាំ', 'ចង្កៀងប្រុសធ្នូ')")
+    status: str = Field(..., pattern="^(yes|no|មាន|គ្មាន)$", description="Status: yes/មាន or no/គ្មាន")
+    notes: Optional[str] = Field(None, description="Additional notes for this item")
+    
+    class Config:
+        from_attributes = True
+
+class VehicleInfo(BaseModel):
+    """Vehicle information section from the check list."""
+    vehicle_type: Optional[str] = Field(None, description="ប្រភេទរថយន្ត - Vehicle type/model")
+    vin_number: Optional[str] = Field(None, description="លេខតួ - VIN/Chassis number")
+    fuel_type: Optional[str] = Field(None, description="ប្រភេទសាំង - Fuel type")
+    fuel_quantity: Optional[str] = Field(None, description="ចំនួនសាំង - Fuel quantity/level")
+    hybrid_type: Optional[str] = Field(None, description="ប្រភេទ Hybrid - Hybrid type if applicable")
+    
+    class Config:
+        from_attributes = True
+
+class TechnicalReportCreate(BaseModel):
+    """Schema for creating a technical report with vehicle check list."""
+    booking_id: int = Field(..., description="ID of the booking this report is for")
+    
+    # Vehicle Information
+    vehicle_info: Optional[VehicleInfo] = Field(None, description="Vehicle details")
+    
+    # Checklist Items (items 1-13 from the form)
+    checklist_items: List[ChecklistItem] = Field(
+        default=[], 
+        description="List of checklist items with yes/no status"
+    )
+    
+    # Work Description
+    work_description: Optional[str] = Field(None, description="Description of work performed")
+    parts_used: Optional[str] = Field(None, description="Description of parts used/replaced")
+    additional_notes: Optional[str] = Field(None, description="Additional notes or observations (Note: សំគាល់សម្រាប់អ្នកជំនាញ)")
+    
+    # Media evidence
+    image_urls: Optional[List[str]] = Field(default=[], description="List of image URLs as proof of work")
+    video_urls: Optional[List[str]] = Field(default=[], description="List of video URLs as proof of work")
+    
+    class Config:
+        from_attributes = True
+
+class TechnicalReportUpdate(BaseModel):
+    """Schema for updating a technical report."""
+    vehicle_info: Optional[VehicleInfo] = None
+    checklist_items: Optional[List[ChecklistItem]] = None
+    work_description: Optional[str] = None
+    parts_used: Optional[str] = None
+    additional_notes: Optional[str] = None
+    image_urls: Optional[List[str]] = None
+    video_urls: Optional[List[str]] = None
+    
+    class Config:
+        from_attributes = True
+
+class TechnicalReportOut(BaseModel):
+    """Schema for outputting a technical report with vehicle check list."""
+    report_id: int
+    booking_id: int
+    technical_id: uuid.UUID
+    
+    # Vehicle Information
+    vehicle_info: Optional[VehicleInfo] = None
+    
+    # Checklist Items
+    checklist_items: List[ChecklistItem] = []
+    
+    # Work Description
+    work_description: Optional[str] = None
+    parts_used: Optional[str] = None
+    additional_notes: Optional[str] = None
+    
+    # Media
+    image_urls: Optional[List[str]] = []
+    video_urls: Optional[List[str]] = []
+    
+    # Approval
+    is_approved: bool
+    approved_by: Optional[uuid.UUID] = None
+    approved_at: Optional[datetime] = None
+    admin_feedback: Optional[str] = None
+    
+    # Timestamps
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+class ReportApproval(BaseModel):
+    """Schema for admin to approve/reject a report."""
+    is_approved: bool = Field(..., description="Whether the report is approved")
+    admin_feedback: Optional[str] = Field(None, description="Feedback from admin (required if rejected)")
+
+class JobStatusResponse(BaseModel):
+    """Schema for job status update response."""
+    booking_id: int
+    status: str
+    message: str = "Status updated successfully"
+    
+    class Config:
+        from_attributes = True

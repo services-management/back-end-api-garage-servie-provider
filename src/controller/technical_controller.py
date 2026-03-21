@@ -1,25 +1,30 @@
 from typing import List, Optional
 from uuid import UUID
+import json
 
 from fastapi import HTTPException, status
 from datetime import date
 from src.models.technical_model import (  # Added TechnicalUpdate
-    TechnicalLogin, TechnicalStatusUpdate, TechnicalUpdate)
-from src.repositories.technical_repositorie import TechnicalRepository
+    TechnicalLogin, TechnicalStatusUpdate, TechnicalUpdate, TechnicalPerformance, TeamPerformance,
+    TechnicalReportCreate, TechnicalReportUpdate, TechnicalReportOut, ReportApproval, JobStatusResponse)
+from src.repositories.technical_repositorie import TechnicalRepository, TechnicalReportRepository
 from src.schemas.techincal import TechnicalModel  # Added TechnicalStatusUpdate
+from src.schemas.booking import TechnicalReport
 from src.utils.hash_password import hash_password  # Added for updates
 from src.utils.verify_password import verify_password
 from sqlalchemy.orm import Session
 from src.repositories.booking_repositories import BookingRepository
 from src.config.telegram_client import telegram_client
+from src.core.enums import BookingStatus
 
 class TechnicalController:
     """Handles the business logic for technical user authentication and management."""
 
-    def __init__(self, db:Session,tech_repo: TechnicalRepository, booking_repo: BookingRepository):
+    def __init__(self, db:Session, tech_repo: TechnicalRepository, booking_repo: BookingRepository):
         self.db = db
         self.tech_repo = tech_repo
         self.booking_repo = booking_repo
+        self.report_repo = TechnicalReportRepository(db)
         
 
     def authenticate_technical(self, tech_in: TechnicalLogin) -> Optional[TechnicalModel]:
@@ -138,3 +143,161 @@ class TechnicalController:
             await telegram_client.send_message(updated_booking.customer.telegram_chat_id, msg)
             
         return updated_booking
+            msg = f"🚗 *Service Update:* Your {booking.car_make} {status_text}"
+            await telegram_client.send_message(booking.customer.telegram_chat_id, msg)
+        
+        return JobStatusResponse(
+            booking_id=booking.booking_id,
+            status=booking.status.value if hasattr(booking.status, 'value') else str(booking.status),
+            message="Status updated successfully"
+        )
+
+    # ----- PERFORMANCE METRICS -----
+
+    def get_technical_performance(self, technical_id: UUID, start_date: date, end_date: date) -> TechnicalPerformance:
+        """Get performance metrics for a single technical staff member."""
+        performance = self.tech_repo.get_technical_performance(technical_id, start_date, end_date)
+        if not performance:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Technical account not found.")
+        return performance
+
+    def get_team_performance(self, team_id: UUID, start_date: date, end_date: date) -> TeamPerformance:
+        """Get performance metrics for a technical team."""
+        performance = self.tech_repo.get_team_performance(team_id, start_date, end_date)
+        if not performance:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Team not found.")
+        return performance
+
+    def get_all_teams_performance(self, start_date: date, end_date: date) -> List[TeamPerformance]:
+        """Get performance metrics for all teams."""
+        return self.tech_repo.get_all_teams_performance(start_date, end_date)
+
+    def get_all_technicals_performance(self, start_date: date, end_date: date) -> List[TechnicalPerformance]:
+        """Get performance metrics for all technical staff."""
+        return self.tech_repo.get_all_technicals_performance(start_date, end_date)
+
+    # ----- TECHNICAL REPORT METHODS -----
+
+    def _parse_report(self, report: TechnicalReport) -> dict:
+        """Parse report and convert JSON strings to objects."""
+        # Parse vehicle info
+        vehicle_info = None
+        if report.vehicle_type or report.vin_number or report.fuel_type:
+            vehicle_info = {
+                "vehicle_type": report.vehicle_type,
+                "vin_number": report.vin_number,
+                "fuel_type": report.fuel_type,
+                "fuel_quantity": report.fuel_quantity,
+                "hybrid_type": report.hybrid_type
+            }
+        
+        # Parse checklist items
+        checklist_items = []
+        if report.checklist_items:
+            try:
+                checklist_items = json.loads(report.checklist_items)
+            except json.JSONDecodeError:
+                checklist_items = []
+        
+        return {
+            "report_id": report.report_id,
+            "booking_id": report.booking_id,
+            "technical_id": report.technical_id,
+            # Vehicle Info
+            "vehicle_info": vehicle_info,
+            # Checklist
+            "checklist_items": checklist_items,
+            # Work Description
+            "work_description": report.work_description,
+            "parts_used": report.parts_used,
+            "additional_notes": report.additional_notes,
+            # Media
+            "image_urls": json.loads(report.image_urls) if report.image_urls else [],
+            "video_urls": json.loads(report.video_urls) if report.video_urls else [],
+            # Approval
+            "is_approved": report.is_approved,
+            "approved_by": report.approved_by,
+            "approved_at": report.approved_at,
+            "admin_feedback": report.admin_feedback,
+            # Timestamps
+            "created_at": report.created_at,
+            "updated_at": report.updated_at
+        }
+
+    def create_report(self, technical_id: UUID, report_in: TechnicalReportCreate) -> TechnicalReportOut:
+        """Create a new technical report for a booking."""
+        # Verify the booking exists and is assigned to this technical's team
+        booking = self.booking_repo.get(report_in.booking_id)
+        if not booking:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Booking not found.")
+        
+        # Create the report
+        try:
+            report = self.report_repo.create(report_in, technical_id)
+            return TechnicalReportOut(**self._parse_report(report))
+        except ValueError as e:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    def update_report(self, report_id: int, technical_id: UUID, report_in: TechnicalReportUpdate) -> TechnicalReportOut:
+        """Update an existing report. Only the author can update."""
+        report = self.report_repo.get_by_id(report_id)
+        if not report:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Report not found.")
+        
+        # Verify ownership
+        if report.technical_id != technical_id:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, detail="You can only update your own reports.")
+        
+        # Cannot update approved reports
+        if report.is_approved:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Cannot update an approved report.")
+        
+        updated_report = self.report_repo.update(report_id, report_in)
+        return TechnicalReportOut(**self._parse_report(updated_report))
+
+    def get_report(self, report_id: int) -> TechnicalReportOut:
+        """Get a report by ID."""
+        report = self.report_repo.get_by_id(report_id)
+        if not report:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Report not found.")
+        return TechnicalReportOut(**self._parse_report(report))
+
+    def get_report_by_booking(self, booking_id: int) -> TechnicalReportOut:
+        """Get report for a specific booking."""
+        report = self.report_repo.get_by_booking_id(booking_id)
+        if not report:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="No report found for this booking.")
+        return TechnicalReportOut(**self._parse_report(report))
+
+    def get_my_reports(self, technical_id: UUID, skip: int = 0, limit: int = 100) -> List[TechnicalReportOut]:
+        """Get all reports by a technical user."""
+        reports = self.report_repo.get_reports_by_technical(technical_id, skip, limit)
+        return [TechnicalReportOut(**self._parse_report(r)) for r in reports]
+
+    def get_pending_reports(self, skip: int = 0, limit: int = 100) -> List[TechnicalReportOut]:
+        """Get all pending reports (for admin)."""
+        reports = self.report_repo.get_pending_reports(skip, limit)
+        return [TechnicalReportOut(**self._parse_report(r)) for r in reports]
+
+    def get_all_reports(self, skip: int = 0, limit: int = 100) -> List[TechnicalReportOut]:
+        """Get all reports (for admin)."""
+        reports = self.report_repo.get_all_reports(skip, limit)
+        return [TechnicalReportOut(**self._parse_report(r)) for r in reports]
+
+    def approve_report(self, report_id: int, admin_id: UUID, approval: ReportApproval) -> TechnicalReportOut:
+        """Approve or reject a report (admin only)."""
+        report = self.report_repo.get_by_id(report_id)
+        if not report:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Report not found.")
+        
+        # If rejecting, feedback is required
+        if not approval.is_approved and not approval.admin_feedback:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="Admin feedback is required when rejecting a report."
+            )
+        
+        updated_report = self.report_repo.approve(
+            report_id, admin_id, approval.is_approved, approval.admin_feedback
+        )
+        return TechnicalReportOut(**self._parse_report(updated_report))

@@ -31,6 +31,7 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
         product = svc.create_product(
             name=payload.name,
             selling_price=payload.selling_price,
+            price_adjustment=payload.price_adjustment,
             unit_cost=payload.unit_cost,
             category_name=payload.category_name,
             description=payload.description,  # ADDED
@@ -234,6 +235,7 @@ def update_product(
             product_id=product_id,
             name=payload.name,
             selling_price=payload.selling_price,
+            price_adjustment=payload.price_adjustment,
             unit_cost=payload.unit_cost,
             category_name=payload.category_name,
             description=payload.description,  # ADDED

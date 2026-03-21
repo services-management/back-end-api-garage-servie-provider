@@ -135,6 +135,7 @@ class ProductRepository(BaseRepository[Product]):
         self,
         name: str,
         selling_price: Decimal | float,
+        price_adjustment: Optional[Decimal | float] = None,
         unit_cost: Optional[Decimal | float] = None,
         category_id: Optional[int] = None,
         description: Optional[str] = None, # Added
@@ -162,6 +163,7 @@ class ProductRepository(BaseRepository[Product]):
             product = Product(
                 name=name,
                 selling_price=to_dec(selling_price),
+                price_adjustment=to_dec(price_adjustment) if price_adjustment is not None else Decimal("0"),
                 unit_cost=to_dec(unit_cost),
                 category_id=category_id,
                 description=description,
@@ -198,6 +200,7 @@ class ProductRepository(BaseRepository[Product]):
         product_id: int,
         name: Optional[str] = None,
         selling_price: Optional[Decimal | float] = None,
+        price_adjustment: Optional[Decimal | float] = None,
         unit_cost: Optional[Decimal | float] = None,
         category_id: Optional[int] = None,
         description: Optional[str] = None, # Added
@@ -219,6 +222,8 @@ class ProductRepository(BaseRepository[Product]):
             update_data["name"] = name.strip() if isinstance(name, str) else name
         if selling_price is not None:
             update_data["selling_price"] = to_dec(selling_price)
+        if price_adjustment is not None:
+            update_data["price_adjustment"] = to_dec(price_adjustment)
         if unit_cost is not None:
             update_data["unit_cost"] = to_dec(unit_cost)
         if category_id is not None:
