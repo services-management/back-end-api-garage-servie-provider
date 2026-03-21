@@ -17,6 +17,7 @@ class TechnicalCreate(BaseModel):
     password: str = Field(min_length=8, description='Password must be hashed before storage.')
     name : str = Field(description="The technical staff's full name for display.")
     phone_number : str = Field(description="Unique phone number for contact/recovery.")
+    telegram_chat_id: Optional[str] = Field(None, description="Telegram Chat ID for receiving bot notifications.")
 
     @validator('phone_number')
     def validate_phone(cls, v):
@@ -40,6 +41,7 @@ class TechnicalUpdate(BaseModel):
     password: Optional[str] = Field(None, min_length=8)
     name: Optional[str] = None
     phone_number: Optional[str] = None
+    telegram_chat_id: Optional[str] = Field(None, description="Telegram Chat ID for receiving bot notifications.")
     # Note: Status and Role are usually updated separately by an Admin, 
     # but we include status here for flexibility.
     status: Optional[TechnicalStatus] = None 
@@ -67,6 +69,7 @@ class TechnicalOut(BaseModel):
     username: str
     name: str
     phone_number: str
+    telegram_chat_id: Optional[str] = None
     role: str
     status: TechnicalStatus # Use the Literal type for better validation
     team_id: Optional[uuid.UUID] = None

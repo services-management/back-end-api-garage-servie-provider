@@ -73,6 +73,30 @@ class AdminController:
         # Format: https://t.me/bot?start=ROLE_UUID
         return f"https://t.me/{bot_username}?start={role}_{user_id}"
 
+    def get_admin_magic_link(self, admin_id: UUID) -> dict:
+        """Get the Telegram magic link for an existing admin."""
+        admin = self.get_admin_by_id(admin_id)
+        magic_link = self._generate_magic_link(admin.admin_id, "admin")
+        return {
+            "admin_id": str(admin.admin_id),
+            "username": admin.username,
+            "telegram_magic_link": magic_link,
+            "telegram_chat_id": admin.telegram_chat_id
+        }
+
+    def get_technical_magic_link(self, technical_id: UUID) -> dict:
+        """Get the Telegram magic link for an existing technical."""
+        tech = self.tech_repo.db.query(TechnicalModel).filter(TechnicalModel.technical_id == technical_id).first()
+        if not tech:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Technical account not found")
+        magic_link = self._generate_magic_link(tech.technical_id, "tech")
+        return {
+            "technical_id": str(tech.technical_id),
+            "username": tech.username,
+            "telegram_magic_link": magic_link,
+            "telegram_chat_id": tech.telegram_chat_id
+        }
+
     def create_admin(self, admin_in: AdminCreate) -> AdminOut:
         """Handle creation of a new admin account."""
         # Check Username uniqueness
