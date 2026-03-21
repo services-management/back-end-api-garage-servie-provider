@@ -266,6 +266,26 @@ async def deactivate_technical_acc(
     return controller.deactivate_technical(technical_id)
 
 
+@router.get("/accounts/admins/{admin_id}/magic-link", summary="Get admin Telegram magic link")
+async def get_admin_magic_link(
+    admin_id: UUID,
+    controller: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """Retrieves the Telegram magic link for an admin account."""
+    return controller.get_admin_magic_link(admin_id)
+
+
+@router.get("/accounts/technicals/{technical_id}/magic-link", summary="Get technical Telegram magic link")
+async def get_technical_magic_link(
+    technical_id: UUID,
+    controller: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """Retrieves the Telegram magic link for a technical account."""
+    return controller.get_technical_magic_link(technical_id)
+
+
 ## 5. Technical Team Management Endpoints
 
 @router.post("/teams", response_model=TechnicalTeamOut, status_code=status.HTTP_201_CREATED, summary="Create Technical Team")
@@ -295,18 +315,6 @@ async def list_technical_teams(
 @router.post("/teams/{team_id}/members/{technical_id}", response_model=TechnicalOut, summary="Add Member to Team")
 async def add_member_to_team(
     team_id: UUID,
-@router.get("/accounts/admins/{admin_id}/magic-link", summary="Get Admin Magic Link")
-async def get_admin_magic_link(
-    admin_id: UUID,
-    controller: AdminController = Depends(get_admin_controller),
-    current_admin: AdminOut = Depends(get_current_admin_user)
-):
-    """Retrieve the Telegram magic link for an existing admin account."""
-    return controller.get_admin_magic_link(admin_id)
-
-
-@router.get("/accounts/technicals/{technical_id}/magic-link", summary="Get Technical Magic Link")
-async def get_technical_magic_link(
     technical_id: UUID,
     controller: AdminController = Depends(get_admin_controller),
     current_admin: AdminOut = Depends(get_current_admin_user)
@@ -328,5 +336,3 @@ async def remove_member_from_team(
     The staff member remains active but is no longer assigned to any team.
     """
     return await controller.remove_staff_from_team(technical_id)
-    """Retrieve the Telegram magic link for an existing technical account."""
-    return controller.get_technical_magic_link(technical_id)
