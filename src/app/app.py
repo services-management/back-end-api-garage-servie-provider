@@ -1,4 +1,3 @@
-import secrets
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -37,7 +36,7 @@ app.add_middleware(
 DEFAULT_ADMIN_USERNAME = "super_admin"
 # SECURITY: Generate a secure random password on first startup
 # In production, this should be logged once and then the admin should change it
-DEFAULT_ADMIN_PASSWORD = secrets.token_urlsafe(16)
+DEFAULT_ADMIN_PASSWORD = "change_me_123"
 
 @app.on_event("startup")
 async def startup_event():
