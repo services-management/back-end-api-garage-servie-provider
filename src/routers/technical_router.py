@@ -143,7 +143,6 @@ async def change_status(
         new_status=status,
         technical_user=current_user
     )
-    return await service.update_job_status(booking_id, status)
 
 # --- PERFORMANCE ENDPOINTS ---
 

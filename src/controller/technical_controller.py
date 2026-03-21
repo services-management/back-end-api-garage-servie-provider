@@ -6,7 +6,7 @@ from fastapi import HTTPException, status
 from datetime import date
 from src.models.technical_model import (  # Added TechnicalUpdate
     TechnicalLogin, TechnicalStatusUpdate, TechnicalUpdate, TechnicalPerformance, TeamPerformance,
-    TechnicalReportCreate, TechnicalReportUpdate, TechnicalReportOut, ReportApproval, JobStatusResponse)
+    TechnicalReportCreate, TechnicalReportUpdate, TechnicalReportOut, ReportApproval)
 from src.repositories.technical_repositorie import TechnicalRepository, TechnicalReportRepository
 from src.schemas.techincal import TechnicalModel  # Added TechnicalStatusUpdate
 from src.schemas.booking import TechnicalReport
@@ -15,7 +15,6 @@ from src.utils.verify_password import verify_password
 from sqlalchemy.orm import Session
 from src.repositories.booking_repositories import BookingRepository
 from src.config.telegram_client import telegram_client
-from src.core.enums import BookingStatus
 
 class TechnicalController:
     """Handles the business logic for technical user authentication and management."""
@@ -101,7 +100,23 @@ class TechnicalController:
         1. Updates status in DB
         2. Sends Telegram alert based on progress
         3. Validates booking belongs to user's team
+        4. Requires approved report before marking as COMPLETED
         """
+        # Check if trying to mark as COMPLETED - validate report first
+        if new_status == "COMPLETED":
+            if not self.report_repo.has_report(booking_id):
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot mark booking as COMPLETED. Please submit a technical report first."
+                )
+            # Check if report is approved
+            report = self.report_repo.get_by_booking_id(booking_id)
+            if not report.is_approved:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot mark booking as COMPLETED. Technical report must be approved first."
+                )
+
         # SECURITY: Fetch booking and verify it belongs to user's team
         booking = self.booking_repo.get(booking_id)
         
@@ -127,7 +142,7 @@ class TechnicalController:
                 detail="Failed to update booking status."
             )
 
-        # 2. Telegram Trigger for Status Updates
+        # Telegram Trigger for Status Updates
         if updated_booking.customer and updated_booking.customer.telegram_chat_id:
             # Define friendly messages based on the status
             if new_status == "IN_PROGRESS":
@@ -143,14 +158,6 @@ class TechnicalController:
             await telegram_client.send_message(updated_booking.customer.telegram_chat_id, msg)
             
         return updated_booking
-            msg = f"🚗 *Service Update:* Your {booking.car_make} {status_text}"
-            await telegram_client.send_message(booking.customer.telegram_chat_id, msg)
-        
-        return JobStatusResponse(
-            booking_id=booking.booking_id,
-            status=booking.status.value if hasattr(booking.status, 'value') else str(booking.status),
-            message="Status updated successfully"
-        )
 
     # ----- PERFORMANCE METRICS -----
 
