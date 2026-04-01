@@ -50,7 +50,7 @@ async def startup_event():
     webhook_url = f"{settings.DOMAIN}/webhook/telegram"
     telegram_api_url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/setWebhook"
     
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(verify = False) as client:
         try:
             response = await client.post(telegram_api_url, json={"url": webhook_url})
             result = response.json()

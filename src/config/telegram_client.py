@@ -19,7 +19,7 @@ class TelegramClient:
             "disable_web_page_preview": False
         }
         
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(verify = False) as client:
             try:
                 response = await client.post(url, json=payload)
                 response.raise_for_status()
@@ -41,7 +41,7 @@ class TelegramClient:
             "caption": caption
         }
         
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(verify = False) as client:
             try:
                 response = await client.post(url, json=payload)
                 response.raise_for_status()
