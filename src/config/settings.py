@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # DB driver: 'psycopg' (psycopg3) or 'psycopg2'
     DB_DRIVER: str = os.getenv("DB_DRIVER", "psycopg2")
     # telegram bot token 
-    DOMAIN: str = os.getenv("DOMAIN", "http://localhost:8000")
+    DOMAIN: str = os.getenv("DOMAIN", "")
     TELEGRAM_BOT_TOKEN: Optional[str] = None
     TELEGRAM_BOT_USERNAME: Optional[str] = os.getenv("TELEGRAM_BOT_USERNAME", "my_garage_service_bot")
     # JWT settings (optional - only needed for authentication endpoints)
