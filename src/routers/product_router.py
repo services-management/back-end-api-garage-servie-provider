@@ -284,3 +284,86 @@ def link_product_to_vehicle(
     if not link:
         raise HTTPException(status_code=404, detail="Product or Vehicle not found")
     return {"message": "Product linked to vehicle successfully"}
+
+
+@router.patch("/{product_id}/vehicle/{vehicle_id}",
+              dependencies=[Depends(get_current_admin_user)])
+def update_product_vehicle_link(
+    product_id: int,
+    vehicle_id: int,
+    quantity_required: Optional[str] = Query(None),
+    note: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Update a product-vehicle compatibility link."""
+    repo = ProductVehicleRepository(db)
+    link = repo.update_link(
+        product_id=product_id,
+        vehicle_id=vehicle_id,
+        quantity_required=quantity_required,
+        note=note
+    )
+    if not link:
+        raise HTTPException(status_code=404, detail="Product-Vehicle link not found")
+    return {
+        "message": "Product-vehicle link updated successfully",
+        "product_id": link.product_id,
+        "vehicle_id": link.vehicle_id,
+        "quantity_required": link.quantity_required,
+        "note": link.note
+    }
+
+
+@router.delete("/{product_id}/vehicle/{vehicle_id}",
+               status_code=status.HTTP_204_NO_CONTENT,
+               dependencies=[Depends(get_current_admin_user)])
+def delete_product_vehicle_link(
+    product_id: int,
+    vehicle_id: int,
+    db: Session = Depends(get_db)
+):
+    """Delete a product-vehicle compatibility link."""
+    repo = ProductVehicleRepository(db)
+    deleted = repo.delete_link(product_id, vehicle_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Product-Vehicle link not found")
+    return None
+
+
+@router.get("/{product_id}/vehicles", response_model=List[dict])
+def get_vehicles_for_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """Get all vehicles compatible with a specific product."""
+    from src.schemas.product import ProductVehicleCompatibility, Product
+    from src.schemas.vehicle import Vehicle
+    
+    # Check product exists
+    product = db.query(Product).filter(Product.product_id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    # Get all vehicle links with vehicle details
+    links = db.query(ProductVehicleCompatibility, Vehicle).join(
+        Vehicle, ProductVehicleCompatibility.vehicle_id == Vehicle.vehicle_id
+    ).filter(ProductVehicleCompatibility.product_id == product_id).all()
+    
+    result = []
+    for link, vehicle in links:
+        result.append({
+            "vehicle_id": vehicle.vehicle_id,
+            "model_id": vehicle.model_id,
+            "year": vehicle.year,
+            "engine": vehicle.engine,
+            "vehicle_type": vehicle.vehicle_type.value if vehicle.vehicle_type else None,
+            "fuel_type": vehicle.fuel_type.value if vehicle.fuel_type else None,
+            "drive_type": vehicle.drive_type.value if vehicle.drive_type else None,
+            "transmission": vehicle.transmission.value if vehicle.transmission else None,
+            "is_active": vehicle.is_active,
+            "quantity_required": link.quantity_required,
+            "note": link.note
+        })
+    
+    return result
