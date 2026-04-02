@@ -1,7 +1,7 @@
 from typing import List, Optional # Ensure List and Optional are imported here
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from src.config.database import get_db
@@ -9,6 +9,7 @@ from src.controller.product_controller import ProductController
 from src.dependency.auth import get_current_admin_user, get_optional_user
 from src.models.product_model import (  # Adjusted import path
     ProductCreate, ProductResponse, ProductUpdate, ProductOut)
+from src.models.admin_model import AdminOut
 from src.repositories.product_vehicle_repository import ProductVehicleRepository
 from src.service.s3_service import S3Service
 from src.core.enums import TransmissionType, FuelType, DriveType, VehicleType
