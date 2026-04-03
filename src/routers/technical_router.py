@@ -125,14 +125,14 @@ async def read_worklist(
 @router.patch("/jobs/{booking_id}/status", response_model=JobStatusResponse, summary="Update Progress")
 async def change_status(
     booking_id: int,
-    status: str, # "IN_PROGRESS" or "COMPLETED"
+    new_status: str, # "IN_PROGRESS" or "COMPLETED"
     service: TechnicalController = Depends(get_technical_controller),
     current_user: TechnicalOut = Depends(get_current_technical_user)
 ):
     """Updates the car status and pings the customer automatically."""
     # SECURITY: Validate status value
     valid_statuses = ["IN_PROGRESS", "COMPLETED"]
-    if status not in valid_statuses:
+    if new_status not in valid_statuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
@@ -140,7 +140,7 @@ async def change_status(
     
     return await service.update_job_status(
         booking_id=booking_id, 
-        new_status=status,
+        new_status=new_status,
         technical_user=current_user
     )
 
@@ -201,13 +201,13 @@ def get_all_technicals_performance(
 # --- TECHNICAL REPORT ENDPOINTS ---
 
 @router.post("/reports", response_model=TechnicalReportOut, status_code=201, summary="Submit Technical Report")
-def create_report(
+async def create_report(
     report_in: TechnicalReportCreate,
     service: TechnicalController = Depends(get_technical_controller),
     current_user = Depends(get_current_technical_user)
 ):
     """Submit a technical report for a booking. Required before marking booking as COMPLETED."""
-    return service.create_report(current_user.technical_id, report_in)
+    return await service.create_report(current_user.technical_id, report_in)
 
 # --- ADMIN REPORT ENDPOINTS (must be before dynamic routes) ---
 
@@ -272,11 +272,11 @@ def update_report(
     return service.update_report(report_id, current_user.technical_id, report_in)
 
 @router.patch("/reports/{report_id}/approve", response_model=TechnicalReportOut, summary="Approve/Reject Report")
-def approve_report(
+async def approve_report(
     report_id: int,
     approval: ReportApproval,
     service: TechnicalController = Depends(get_technical_controller),
     current_user = Depends(get_current_admin_user)
 ):
     """Approve or reject a technical report. Admin only. Rejection requires feedback."""
-    return service.approve_report(report_id, current_user.admin_id, approval)
+    return await service.approve_report(report_id, current_user.admin_id, approval)

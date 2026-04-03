@@ -226,6 +226,55 @@ class AdminController:
            await telegram_client.send_message(booking.customer.telegram_chat_id, message)
 
         return booking
+
+    async def upload_invoice_for_booking(self, booking_id: int, invoice_data):
+        """
+        Upload invoice for a completed booking and notify customer via Telegram.
+        """
+        from datetime import datetime
+        from src.models.booking_model import InvoiceResponse
+        
+        # Get the booking with customer info
+        booking = self.booking_repo.get_with_items(booking_id)
+        if not booking:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Booking not found")
+        
+        # Check if booking is completed (optional validation)
+        if booking.status != BookingStatus.COMPLETED:
+            # You can enforce this or allow invoices for any status
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, 
+                detail="Invoice can only be added for completed bookings"
+            )
+        
+        # Create invoice response
+        invoice_response = InvoiceResponse(
+            external_invoice_url=invoice_data.external_invoice_url,
+            uploaded_at=datetime.utcnow()
+        )
+        
+        # Send invoice to customer via Telegram
+        if booking.customer and booking.customer.telegram_chat_id:
+            try:
+                safe_car = f"{booking.car_make} {booking.car_model}"
+                message = (
+                    f"📄 *INVOICE READY*\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"Your service invoice for {safe_car} is ready!\n\n"
+                    f"📎 View invoice: [Click Here]({invoice_data.external_invoice_url})\n\n"
+                    f"Thank you for choosing our service! 🔧"
+                )
+                await telegram_client.send_message(
+                    booking.customer.telegram_chat_id,
+                    message,
+                    parse_mode="Markdown"
+                )
+                print(f"✅ Invoice sent to customer for booking {booking_id}")
+            except Exception as e:
+                print(f"⚠️ Failed to send invoice to customer: {e}")
+                # Don't fail the upload if Telegram fails
+        
+        return invoice_response
     
     async def get_daily_overview(self, target_date: date):
         """
@@ -262,6 +311,16 @@ class AdminController:
         You can add extra logic here, like audit logging who performed the search.
         """
         return self.booking_repo.search_bookings(query=query, status=status, limit=limit)
+    
+    async def get_booking_by_id(self, booking_id: int):
+        """
+        Get detailed information about a specific booking by ID.
+        Includes customer info, items, services, and products.
+        """
+        booking = self.booking_repo.get_full_booking_details(booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail=f"Booking with ID {booking_id} not found")
+        return booking
     
     async def assign_team(self, booking_id: int, technical_team_id: UUID):
         """Assign a technical team to a booking by its UUID."""

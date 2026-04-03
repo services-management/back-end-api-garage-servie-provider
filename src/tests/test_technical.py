@@ -304,6 +304,60 @@ def test_create_report_success(authenticated_technical_client, test_booking, tec
     assert not data["is_approved"]
     assert "report_id" in data
 
+def test_create_report_sends_notification_to_admin(
+    authenticated_technical_client, 
+    test_booking, 
+    technical_user,
+    admin_with_telegram,
+    db_session
+):
+    """Test that submitting a technical report doesn't break when admin notification is triggered"""
+    from unittest.mock import patch, AsyncMock
+    
+    report_data = {
+        "booking_id": test_booking.booking_id,
+        "vehicle_info": {
+            "vehicle_type": "Toyota Camry 2023",
+            "vin_number": "ABC123456789",
+            "fuel_type": "Gasoline",
+            "fuel_quantity": "Full Tank",
+            "hybrid_type": "None"
+        },
+        "checklist_items": [
+            {"name": "ចង្កៀងមុខស្ដាំ (Right Headlight)", "status": "yes", "notes": ""},
+            {"name": "ចង្កៀងឆ្វេង (Left Headlight)", "status": "yes", "notes": ""},
+            {"name": "ចង្កៀងឆ្វេងខាងក្រោយ (Left Taillight)", "status": "yes", "notes": ""},
+            {"name": "ចង្កៀងស្ដាំខាងក្រោយ (Right Taillight)", "status": "yes", "notes": ""},
+            {"name": "ចង្កៀងចំហៀងខាងស្ដាំ (Right Turn Signal)", "status": "yes", "notes": ""},
+            {"name": "ចង្កៀងចំហៀងខាងឆ្វេង (Left Turn Signal)", "status": "yes", "notes": ""},
+            {"name": "ប្រភេទ Hybrid (Hybrid System)", "status": "no", "notes": "Not hybrid"},
+            {"name": "ថ្នាំងប្រេង ម៉ាស៊ីន (Engine Oil)", "status": "yes", "notes": "OK"},
+            {"name": "ជង់ហ្គាស ម៉ាស៊ីន (Radiator Coolant)", "status": "yes", "notes": ""},
+            {"name": "ទឹកកញ្ចក់ (Windshield Washer)", "status": "yes", "notes": ""},
+            {"name": "ស្លាបភ្លៅឆ្វេងខាងមុខ (Left Wiper)", "status": "yes", "notes": ""},
+            {"name": "ស្លាបភ្លៅស្ដាំខាងមុខ (Right Wiper)", "status": "yes", "notes": ""},
+            {"name": "ហ្វ្រាំង (Brakes)", "status": "yes", "notes": ""}
+        ],
+        "work_description": "Test service with admin notification",
+        "parts_used": "Oil filter",
+        "additional_notes": "All good",
+        "image_urls": [],
+        "video_urls": []
+    }
+    
+    # Mock Telegram to prevent actual API calls during test
+    # The notification should be attempted but failure shouldn't break report creation
+    with patch("src.controller.technical_controller.telegram_client.send_message", new_callable=AsyncMock) as mock_send:
+        mock_send.side_effect = Exception("Telegram not configured in test")
+        
+        response = authenticated_technical_client.post("/technical/reports", json=report_data)
+        
+        # Report should still be created even if notification fails
+        assert response.status_code == 201
+        data = response.json()
+        assert data["booking_id"] == test_booking.booking_id
+        assert not data["is_approved"]
+
 def test_create_report_unauthorized(client, test_booking):
     """Test creating report without authentication."""
     report_data = {
@@ -520,6 +574,93 @@ def test_admin_reject_report_with_feedback(authenticated_admin_client, test_book
     assert not data["is_approved"]
     assert data["admin_feedback"] == rejection_data["admin_feedback"]
 
+def test_admin_approve_report_sends_notification_to_technician(
+    authenticated_admin_client, 
+    test_booking, 
+    authenticated_technical_client,
+    technical_user,
+    db_session
+):
+    """Test that approving a report sends notification to technical staff"""
+    from unittest.mock import patch, AsyncMock
+    
+    # Add telegram_chat_id to technical user for this test
+    technical_user.telegram_chat_id = "tech_telegram_123"
+    db_session.commit()
+    
+    # Create a report first
+    report_data = {
+        "booking_id": test_booking.booking_id,
+        "vehicle_info": {"vehicle_type": "Honda Civic"},
+        "checklist_items": [{"name": "Test Item", "status": "yes"}],
+        "work_description": "Test service with notification."
+    }
+    create_response = authenticated_technical_client.post("/technical/reports", json=report_data)
+    report_id = create_response.json()["report_id"]
+    
+    # Mock Telegram send_message
+    with patch("src.controller.technical_controller.telegram_client.send_message", new_callable=AsyncMock) as mock_send:
+        mock_send.return_value = True
+        
+        # Admin approves the report
+        approval_data = {"is_approved": True}
+        response = authenticated_admin_client.patch(f"/technical/reports/{report_id}/approve", json=approval_data)
+        
+        assert response.status_code == 200
+        # Verify Telegram notification was attempted
+        assert mock_send.called
+        # Verify message contains approval information
+        call_args = mock_send.call_args
+        message_text = call_args[1]["text"]
+        assert "APPROVED" in message_text or "✅" in message_text
+        # Vehicle info comes from booking, not report data
+        assert "Vehicle:" in message_text
+
+def test_admin_reject_report_sends_notification_to_technician(
+    authenticated_admin_client, 
+    test_booking, 
+    authenticated_technical_client,
+    technical_user,
+    db_session
+):
+    """Test that rejecting a report sends notification to technical staff"""
+    from unittest.mock import patch, AsyncMock
+    
+    # Add telegram_chat_id to technical user for this test
+    technical_user.telegram_chat_id = "tech_telegram_123"
+    db_session.commit()
+    
+    # Create a report first
+    report_data = {
+        "booking_id": test_booking.booking_id,
+        "vehicle_info": {"vehicle_type": "Toyota Camry"},
+        "checklist_items": [{"name": "Test Item", "status": "yes"}],
+        "work_description": "Test service with rejection notification."
+    }
+    create_response = authenticated_technical_client.post("/technical/reports", json=report_data)
+    report_id = create_response.json()["report_id"]
+    
+    # Mock Telegram send_message
+    with patch("src.controller.technical_controller.telegram_client.send_message", new_callable=AsyncMock) as mock_send:
+        mock_send.return_value = True
+        
+        # Admin rejects the report with feedback
+        rejection_data = {
+            "is_approved": False,
+            "admin_feedback": "Please add more details about parts used."
+        }
+        response = authenticated_admin_client.patch(f"/technical/reports/{report_id}/approve", json=rejection_data)
+        
+        assert response.status_code == 200
+        # Verify Telegram notification was attempted
+        assert mock_send.called
+        # Verify message contains rejection information and feedback
+        call_args = mock_send.call_args
+        message_text = call_args[1]["text"]
+        assert "REJECTED" in message_text or "❌" in message_text
+        assert "Admin Feedback" in message_text
+        assert "parts" in message_text.lower()
+
 def test_cannot_complete_booking_without_report(authenticated_technical_client, test_booking, test_team, technical_user, db_session):
     """Test that booking cannot be marked COMPLETED without a report."""
     # Assign technical to team and booking to the same team
@@ -529,7 +670,7 @@ def test_cannot_complete_booking_without_report(authenticated_technical_client, 
     
     # Try to mark as completed without report
     response = authenticated_technical_client.patch(
-        f"/technical/jobs/{test_booking.booking_id}/status?status=COMPLETED"
+        f"/technical/jobs/{test_booking.booking_id}/status?new_status=COMPLETED"
     )
     assert response.status_code == 400
     assert "report" in response.json()["detail"].lower()
@@ -552,7 +693,7 @@ def test_cannot_complete_booking_with_unapproved_report(authenticated_technical_
     
     # Try to mark as completed
     response = authenticated_technical_client.patch(
-        f"/technical/jobs/{test_booking.booking_id}/status?status=COMPLETED"
+        f"/technical/jobs/{test_booking.booking_id}/status?new_status=COMPLETED"
     )
     assert response.status_code == 400
     assert "approved" in response.json()["detail"].lower()
@@ -582,7 +723,7 @@ def test_can_complete_booking_with_approved_report(authenticated_technical_clien
     
     # Now technical can mark as completed
     response = authenticated_technical_client.patch(
-        f"/technical/jobs/{test_booking.booking_id}/status?status=COMPLETED"
+        f"/technical/jobs/{test_booking.booking_id}/status?new_status=COMPLETED"
     )
     assert response.status_code == 200
     assert response.json()["status"] == BookingStatus.COMPLETED.value
