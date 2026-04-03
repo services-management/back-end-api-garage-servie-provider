@@ -18,6 +18,12 @@ async def handle_webhook(request: Request, db: Session = Depends(get_db)):
     except json.JSONDecodeError:
         print("⚠️ Received non-JSON data (likely ngrok warning page)")
         return Response(content="Expected JSON", status_code=200)
+    except Exception as e:
+        # Log any error for debugging
+        print(f"❌ ERROR in webhook: {type(e).__name__}: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return Response(content=f"Error: {str(e)}", status_code=200)
 
     if "message" in data:
         chat_id = data["message"]["chat"]["id"]
@@ -50,27 +56,31 @@ async def handle_webhook(request: Request, db: Session = Depends(get_db)):
                         admin_id = magic_data.replace("admin_", "")
                         from src.schemas.admin import adminModel
                         admin = db.query(adminModel).filter(adminModel.admin_id == admin_id).first()
+                        print(f"🔍 Admin lookup: id={admin_id}, found={admin is not None}")
                         if admin:
-                            # We'll need to add telegram_chat_id to adminModel if it's missing
-                            # For now, let's check if it exists or use a generic update
-                            if hasattr(admin, "telegram_chat_id"):
-                                admin.telegram_chat_id = chat_id
-                                db.commit()
-                                await telegram_client.send_message(chat_id, f"Welcome Admin {admin.username}! Your account is linked. You will receive alerts here.")
-                                return {"status": "admin_linked"}
+                            # Link admin account
+                            admin.telegram_chat_id = str(chat_id)
+                            db.commit()
+                            print(f"✅ Linked admin account: {admin.username}")
+                            await telegram_client.send_message(chat_id, f"Welcome Admin {admin.username}! Your account is linked. You will receive alerts here.")
+                            return {"status": "admin_linked"}
+                        else:
+                            print(f"❌ Admin not found: {admin_id}")
                         
                     elif magic_data.startswith("tech_"):
                         tech_id = magic_data.replace("tech_", "")
                         from src.schemas.techincal import TechnicalModel
                         tech = db.query(TechnicalModel).filter(TechnicalModel.technical_id == tech_id).first()
+                        print(f"🔍 Tech lookup: id={tech_id}, found={tech is not None}")
                         if tech:
-                            # We'll need to add telegram_chat_id to TechnicalModel if it's missing
-                            if hasattr(tech, "telegram_chat_id") or True: # Force check
-                                # Check if column exists, if not we might need to add it
-                                tech.telegram_chat_id = chat_id
-                                db.commit()
-                                await telegram_client.send_message(chat_id, f"Welcome Technician {tech.name}! Your account is linked. You will receive new job alerts here.")
-                                return {"status": "tech_linked"}
+                            # Link technical account
+                            tech.telegram_chat_id = str(chat_id)
+                            db.commit()
+                            print(f"✅ Linked tech account: {tech.name}")
+                            await telegram_client.send_message(chat_id, f"Welcome Technician {tech.name}! Your account is linked. You will receive new job alerts here.")
+                            return {"status": "tech_linked"}
+                        else:
+                            print(f"❌ Tech not found: {tech_id}")
 
                     else:
                         # Default User linking

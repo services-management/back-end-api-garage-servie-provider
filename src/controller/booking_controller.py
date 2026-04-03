@@ -77,7 +77,7 @@ class BookingService:
             booking = self.booking_repo.create_booking_with_items(booking_info, user.user_id)
 
             try:
-                await self._notify_admin_of_new_booking(booking, user)
+                await self._notify_admins_of_new_booking(booking, user)
             except Exception as admin_err:
                 logger.error(f"⚠️ Admin notification failed: {admin_err}")
 

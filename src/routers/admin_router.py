@@ -140,6 +140,18 @@ async def provision_technical_account(
     """
     return controller.create_technical_account(tech_in)
 
+@router.get("/bookings/{booking_id}", response_model=BookingHistoryResponse, summary="Get Booking by ID")
+async def get_booking(
+    booking_id: int,
+    controller: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """
+    Get detailed information about a specific booking by ID.
+    Includes customer info, items, services, and products.
+    """
+    return await controller.get_booking_by_id(booking_id)
+
 @router.get("/bookings", response_model=List[BookingHistoryResponse], summary="Search and Filter Bookings")
 async def search_bookings(
     query: Optional[str] = Query(None, description="Search by name, phone, or car model"),

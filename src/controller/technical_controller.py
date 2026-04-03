@@ -95,6 +95,126 @@ class TechnicalController:
             text = text.replace(char, f'\\{char}')
         return text
 
+    async def _notify_admin_of_new_report(self, report, booking, technical_id):
+        """
+        Internal helper to send Telegram notification to admins when a new technical report is submitted.
+        """
+        from src.schemas.admin import adminModel
+        from sqlalchemy import select
+        
+        # Get all active admins with telegram_chat_id
+        admins = self.db.execute(
+            select(adminModel).where(
+                adminModel.is_active.is_(True),
+                adminModel.telegram_chat_id.isnot(None)
+            )
+        ).scalars().all()
+        
+        if not admins:
+            print("⚠️ No active admins with Telegram found for report notification")
+            return
+        
+        # Get technician name
+        technician = self.tech_repo.get(technical_id)
+        tech_name = technician.name if technician else "Unknown Technician"
+        
+        # Sanitize data to prevent injection attacks
+        safe_car = f"{booking.car_make} {booking.car_model}"
+        safe_date = booking.appointment_date.strftime("%Y-%m-%d") if booking.appointment_date else "TBD"
+        safe_location = booking.service_location or "Garage"
+        
+        # Build notification message
+        notification_msg = (
+            f"📋 *NEW TECHNICAL REPORT SUBMITTED*\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"🔧 *Technician:* {tech_name}\n"
+            f"🚗 *Vehicle:* {safe_car}\n"
+            f"📅 *Service Date:* {safe_date}\n"
+            f"📍 *Location:* {safe_location}\n\n"
+            f"📝 *Report Details:*\n"
+            f"• Checklist items completed\n"
+            f"• Parts used documented\n"
+            f"• Photos/videos attached\n\n"
+            f"👉 *Action Required:* Please review and approve/reject the report."
+        )
+        
+        # Send to all admins with Telegram
+        sent_count = 0
+        for admin in admins:
+            if admin.telegram_chat_id:
+                try:
+                    await telegram_client.send_message(
+                        chat_id=admin.telegram_chat_id,
+                        text=notification_msg,
+                        parse_mode="Markdown"
+                    )
+                    sent_count += 1
+                    print(f"✅ Admin {admin.username} notified of new report for booking {booking.booking_id}")
+                except Exception as e:
+                    print(f"❌ Failed to notify admin {admin.username}: {e}")
+        
+        if sent_count == 0:
+            print("⚠️ Report alert: No notifications were sent to admins")
+        else:
+            print(f"📢 Sent {sent_count} report alert(s) to admin(s)")
+
+    async def _notify_technical_of_approval_decision(self, report, approval):
+        """
+        Internal helper to send Telegram notification to technical staff 
+        when admin approves or rejects their report.
+        """
+        # Get the technician who submitted the report
+        technician = self.tech_repo.get(report.technical_id)
+        
+        if not technician or not technician.telegram_chat_id:
+            print("⚠️ Technician has no Telegram linked, skipping notification")
+            return
+        
+        # Get booking info for context
+        booking = self.booking_repo.get(report.booking_id)
+        safe_car = f"{booking.car_make} {booking.car_model}" if booking else "Unknown Vehicle"
+        
+        # Build notification message based on approval/rejection
+        if approval.is_approved:
+            emoji = "✅"
+            status_text = "APPROVED"
+            action_text = "You can now mark this booking as COMPLETED."
+            feedback_section = ""
+        else:
+            emoji = "❌"
+            status_text = "REJECTED"
+            action_text = "Please review the feedback and update your report."
+            # Include admin feedback for rejections
+            safe_feedback = self._sanitize_telegram_message(approval.admin_feedback or "No feedback provided")
+            feedback_section = f"\n📝 *Admin Feedback:*\n{safe_feedback}"
+        
+        # Sanitize data to prevent injection attacks
+        safe_date = booking.appointment_date.strftime("%Y-%m-%d") if booking and booking.appointment_date else "TBD"
+        
+        # Build notification message
+        notification_msg = (
+            f"{emoji} *REPORT {status_text}*\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"🚗 *Vehicle:* {safe_car}\n"
+            f"📅 *Service Date:* {safe_date}\n\n"
+            f"👉 *Action Required:* {action_text}"
+            f"{feedback_section}\n\n"
+            f"Check your dashboard for full details."
+        )
+        
+        # Send notification
+        try:
+            await telegram_client.send_message(
+                chat_id=technician.telegram_chat_id,
+                text=notification_msg,
+                parse_mode="Markdown"
+            )
+            tech_name = technician.name or technician.username
+            result = "approved" if approval.is_approved else "rejected"
+            print(f"✅ Technician {tech_name} notified that report was {result} for booking {booking.booking_id}")
+        except Exception as e:
+            print(f"❌ Failed to notify technician {technician.username}: {e}")
+
     async def update_job_status(self, booking_id: int, new_status: str, technical_user: TechnicalModel):
         """
         1. Updates status in DB
@@ -231,7 +351,7 @@ class TechnicalController:
             "updated_at": report.updated_at
         }
 
-    def create_report(self, technical_id: UUID, report_in: TechnicalReportCreate) -> TechnicalReportOut:
+    async def create_report(self, technical_id: UUID, report_in: TechnicalReportCreate) -> TechnicalReportOut:
         """Create a new technical report for a booking."""
         # Verify the booking exists and is assigned to this technical's team
         booking = self.booking_repo.get(report_in.booking_id)
@@ -241,6 +361,14 @@ class TechnicalController:
         # Create the report
         try:
             report = self.report_repo.create(report_in, technical_id)
+            
+            # Send notification to admin about new report submission
+            try:
+                await self._notify_admin_of_new_report(report, booking, technical_id)
+            except Exception as e:
+                # Log error but don't fail the report creation
+                print(f"⚠️ Admin notification failed: {e}")
+            
             return TechnicalReportOut(**self._parse_report(report))
         except ValueError as e:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -291,7 +419,7 @@ class TechnicalController:
         reports = self.report_repo.get_all_reports(skip, limit)
         return [TechnicalReportOut(**self._parse_report(r)) for r in reports]
 
-    def approve_report(self, report_id: int, admin_id: UUID, approval: ReportApproval) -> TechnicalReportOut:
+    async def approve_report(self, report_id: int, admin_id: UUID, approval: ReportApproval) -> TechnicalReportOut:
         """Approve or reject a report (admin only)."""
         report = self.report_repo.get_by_id(report_id)
         if not report:
@@ -307,4 +435,12 @@ class TechnicalController:
         updated_report = self.report_repo.approve(
             report_id, admin_id, approval.is_approved, approval.admin_feedback
         )
+        
+        # Send notification to technical staff about approval/rejection
+        try:
+            await self._notify_technical_of_approval_decision(updated_report, approval)
+        except Exception as e:
+            # Log error but don't fail the approval
+            print(f"⚠️ Technical notification failed: {e}")
+        
         return TechnicalReportOut(**self._parse_report(updated_report))
