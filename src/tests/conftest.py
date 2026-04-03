@@ -96,6 +96,23 @@ def admin_user(db_session):
     return admin
 
 @pytest.fixture(scope="function")
+def admin_with_telegram(db_session):
+    """Create an admin user with Telegram chat ID linked"""
+    from src.utils.hash_password import hash_password
+    admin = adminModel(
+        username="testadmintg", 
+        password=hash_password("securepassword"), 
+        role="admin", 
+        email_phone="admintg@example.com",
+        telegram_chat_id="987654321",  # Mock Telegram chat ID
+        is_active=True
+    )
+    db_session.add(admin)
+    db_session.commit()
+    db_session.refresh(admin)
+    return admin
+
+@pytest.fixture(scope="function")
 def admin_token(client, admin_user):
     response = client.post("/admin/login", json={"username": "testadmin", "password": "securepassword"})
     return response.json()["access_token"]
@@ -229,6 +246,7 @@ def test_team(db_session):
 @pytest.fixture(scope="function")
 def technical_user_with_telegram(db_session, test_team):
     """Create a technical user with Telegram chat ID linked to a team"""
+    from src.schemas.techincal import TechnicalModel
     from src.utils.hash_password import hash_password
     tech = TechnicalModel(
         username="techuser",

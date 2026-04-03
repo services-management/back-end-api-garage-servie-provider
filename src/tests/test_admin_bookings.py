@@ -447,6 +447,74 @@ def test_admin_create_booking_for_customer(authenticated_admin_client, test_user
     assert booking_data_2["car_make"] == "Toyota"
     assert booking_data_2["car_model"] == "Camry"
 
+def test_admin_get_booking_by_id(authenticated_admin_client, test_booking):
+    """Test getting a specific booking by ID"""
+    response = authenticated_admin_client.get(f"/admin/bookings/{test_booking.booking_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["booking_id"] == test_booking.booking_id
+    assert data["car_make"] == test_booking.car_make
+    assert data["car_model"] == test_booking.car_model
+
+def test_admin_get_booking_not_found(authenticated_admin_client):
+    """Test 404 when booking doesn't exist"""
+    response = authenticated_admin_client.get("/admin/bookings/999999")
+    assert response.status_code == 404
+
+def test_admin_upload_invoice_for_completed_booking(
+    authenticated_admin_client, 
+    test_booking, 
+    db_session
+):
+    """Test admin can upload invoice for completed booking and customer gets notified"""
+    from unittest.mock import patch, AsyncMock
+    
+    # Set booking as completed
+    test_booking.status = BookingStatus.COMPLETED
+    test_booking.customer.telegram_chat_id = "customer_telegram_123"
+    db_session.commit()
+    
+    invoice_data = {
+        "external_invoice_url": "https://storage.example.com/invoices/test-invoice-123.pdf"
+    }
+    
+    with patch("src.controller.admin_controller.telegram_client.send_message", new_callable=AsyncMock) as mock_send:
+        mock_send.return_value = True
+        
+        response = authenticated_admin_client.post(
+            f"/admin/bookings/{test_booking.booking_id}/invoice",
+            json=invoice_data
+        )
+        
+        assert response.status_code == 201
+        data = response.json()
+        assert data["external_invoice_url"] == invoice_data["external_invoice_url"]
+        assert "uploaded_at" in data
+        
+        # Verify Telegram notification was sent to customer
+        assert mock_send.called, "Telegram send_message should have been called"
+        # Just verify it was called - detailed message testing requires more complex mocking
+
+def test_admin_upload_invoice_fails_for_non_completed_booking(
+    authenticated_admin_client, 
+    test_booking
+):
+    """Test that invoice upload fails for non-completed bookings"""
+    # Booking is still PENDING by default
+    
+    invoice_data = {
+        "external_invoice_url": "https://storage.example.com/invoices/test-invoice-456.pdf"
+    }
+    
+    response = authenticated_admin_client.post(
+        f"/admin/bookings/{test_booking.booking_id}/invoice",
+        json=invoice_data
+    )
+    
+    # Should fail because booking is not completed
+    assert response.status_code == 400
+    assert "completed" in response.json()["detail"].lower()
+
 def test_admin_get_overview(authenticated_admin_client, test_booking):
     """Test daily overview includes bookings with customer information"""
     today = date.today().isoformat()

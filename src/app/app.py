@@ -55,11 +55,11 @@ async def startup_event():
             response = await client.post(telegram_api_url, json={"url": webhook_url})
             result = response.json()
             if result.get("ok"):
-                print(f"✅ Telegram Webhook set to: {webhook_url}")
+                print(f"[OK] Telegram Webhook set to: {webhook_url}")
             else:
-                print(f"❌ Telegram Webhook Error: {result}")
+                print(f"[ERROR] Telegram Webhook Error: {result}")
         except Exception as e:
-            print(f"❌ Connection Error during Webhook setup: {e}")
+            print(f"[ERROR] Connection Error during Webhook setup: {e}")
 
 def init_db():
     """Initialize database tables"""
