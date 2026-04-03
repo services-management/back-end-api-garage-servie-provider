@@ -102,6 +102,14 @@ class InvoiceResponse(BaseModel):
     class Config:
         from_attributes = True
 
+# Simple schema for customer info in booking responses
+class CustomerInfoForBooking(BaseModel):
+    full_name: str
+    phone: str
+    
+    class Config:
+        from_attributes = True
+
 class BookingHistoryResponse(BaseModel):
     booking_id: int
     vehicle_id: Optional[int]
@@ -119,7 +127,10 @@ class BookingHistoryResponse(BaseModel):
     # This is where our 'backref' relationship pays off!
     # If no invoice exists yet, this will simply be null
     invoice: Optional[InvoiceResponse] = None
-
+    
+    # Customer information (nested from customer relationship)
+    customer: Optional[CustomerInfoForBooking] = None
+    
     class Config:
         from_attributes = True
 
