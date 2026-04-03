@@ -1,9 +1,6 @@
 from typing import Optional
 import os
 from pathlib import Path
-# from io import BytesIO
-# from jinja2 import Environment, FileSystemLoader
-#from weasyprint import HTML
 import boto3
 from botocore.exceptions import ClientError
 
@@ -150,31 +147,7 @@ class S3Service:
             print(f"Error deleting file from S3: {e}")
             return False
 
-    # def generate_invoice_pdf(booking_data) -> bytes:
-    #     # 1. Load your HTML template
-    #     env = Environment(loader=FileSystemLoader('templates'))
-    #     template = env.get_template('invoice_template.html')
-        
-    #     # 2. Fill it with data
-    #     html_out = template.render(booking=booking_data)
-        
-    #     # 3. Render to bytes
-    #     pdf_bytes = BytesIO()
-    #     HTML(string=html_out).write_pdf(pdf_bytes)
-    #     return pdf_bytes.getvalue()
-    
-    # s3_service = S3Service()
-    # def handle_invoice_upload(booking):
-    #     # Generate the digital file
-    #     pdf_content = generate_invoice_pdf(booking)
-        
-    #     # Path inside your S3 bucket
-    #     s3_key = f"invoices/booking_{booking.booking_id}.pdf"
-        
-    #     # Upload using your existing class!
-    #     invoice_url = S3_service.upload_file_from_bytes(
-    #         file_bytes=pdf_content,
-    #         s3_key=s3_key,
-    #         content_type="application/pdf"
-    #     )
-    #     return invoice_url
+
+def get_s3_service() -> S3Service:
+    """Dependency injection for S3Service."""
+    return S3Service()

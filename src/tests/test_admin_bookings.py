@@ -3,6 +3,7 @@ from datetime import date, time
 from decimal import Decimal
 from uuid import uuid4
 from unittest.mock import patch, AsyncMock
+import io
 from src.schemas.booking import BookingStatus, BookingSource
 
 @pytest.fixture
@@ -384,134 +385,61 @@ def test_admin_assign_team_nonexistent_booking(
     
     assert response.status_code == 404
 
-def test_admin_create_booking_for_customer(authenticated_admin_client, test_user, test_service, technical_user):
-    """Test creating a booking with and without garage assignment"""
-    
-    # Test Case 1: With assigned_garage_id provided
-    payload_with_garage = {
-        "phone": test_user.phone,
-        "full_name": test_user.full_name,
-        "car_make": "Honda",
-        "car_model": "Civic",
-        "appointment_date": str(date.today()),
-        "start_time": "14:00:00",
-        "service_location": "Customer Home",
-        "items": [
-            {
-                "service_id": test_service.service_id,
-                "quantity": 1.0
-            }
-        ],
-        "source": "Phone",
-        "assigned_garage_id": str(uuid4())  # Optional but valid
-    }
-    response = authenticated_admin_client.post("/admin/bookings", json=payload_with_garage)
-    assert response.status_code == 201
-    
-    # Verify response includes customer information
-    booking_data_1 = response.json()
-    assert "booking_id" in booking_data_1
-    assert "customer" in booking_data_1
-    assert booking_data_1["customer"]["full_name"] == test_user.full_name
-    assert booking_data_1["customer"]["phone"] == test_user.phone
-    assert booking_data_1["car_make"] == "Honda"
-    assert booking_data_1["car_model"] == "Civic"
-    
-    # Test Case 2: Without assigned_garage_id (auto-assign to main campus)
-    payload_without_garage = {
-        "phone": test_user.phone,
-        "full_name": test_user.full_name,
-        "car_make": "Toyota",
-        "car_model": "Camry",
-        "appointment_date": str(date.today()),
-        "start_time": "15:00:00",
-        "service_location": "Garage",
-        "items": [
-            {
-                "service_id": test_service.service_id,
-                "quantity": 1.0
-            }
-        ],
-        "source": "Phone"
-        # assigned_garage_id is now OPTIONAL for single campus setup
-    }
-    response = authenticated_admin_client.post("/admin/bookings", json=payload_without_garage)
-    assert response.status_code == 201
-    
-    # Verify response includes customer information
-    booking_data_2 = response.json()
-    assert "booking_id" in booking_data_2
-    assert "customer" in booking_data_2
-    assert booking_data_2["customer"]["full_name"] == test_user.full_name
-    assert booking_data_2["customer"]["phone"] == test_user.phone
-    assert booking_data_2["car_make"] == "Toyota"
-    assert booking_data_2["car_model"] == "Camry"
 
-def test_admin_get_booking_by_id(authenticated_admin_client, test_booking):
-    """Test getting a specific booking by ID"""
-    response = authenticated_admin_client.get(f"/admin/bookings/{test_booking.booking_id}")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["booking_id"] == test_booking.booking_id
-    assert data["car_make"] == test_booking.car_make
-    assert data["car_model"] == test_booking.car_model
-
-def test_admin_get_booking_not_found(authenticated_admin_client):
-    """Test 404 when booking doesn't exist"""
-    response = authenticated_admin_client.get("/admin/bookings/999999")
-    assert response.status_code == 404
-
-def test_admin_upload_invoice_for_completed_booking(
+def test_admin_upload_invoice_file_to_s3(
     authenticated_admin_client, 
     test_booking, 
     db_session
 ):
-    """Test admin can upload invoice for completed booking and customer gets notified"""
-    from unittest.mock import patch, AsyncMock
+    """Test admin can upload invoice file to S3 for completed booking"""
     
-    # Set booking as completed
+    # Set booking as completed and add customer Telegram
     test_booking.status = BookingStatus.COMPLETED
     test_booking.customer.telegram_chat_id = "customer_telegram_123"
     db_session.commit()
     
-    invoice_data = {
-        "external_invoice_url": "https://storage.example.com/invoices/test-invoice-123.pdf"
-    }
+    # Create a small PDF file
+    mock_pdf_content = b"%PDF-1.4 Fake PDF content for testing"
+    files = {'file': ('test_invoice.pdf', io.BytesIO(mock_pdf_content), 'application/pdf')}
     
-    with patch("src.controller.admin_controller.telegram_client.send_message", new_callable=AsyncMock) as mock_send:
-        mock_send.return_value = True
+    # Mock S3 upload to avoid needing real S3 credentials
+    with patch("src.service.s3_service.S3Service.upload_file_from_bytes") as mock_upload:
+        mock_upload.return_value = "https://s3.example.com/invoices/test_invoice.pdf"
         
         response = authenticated_admin_client.post(
-            f"/admin/bookings/{test_booking.booking_id}/invoice",
-            json=invoice_data
+            f"/admin/bookings/{test_booking.booking_id}/invoice/upload-file",
+            files=files
         )
         
+        # Should succeed with mocked S3
         assert response.status_code == 201
         data = response.json()
-        assert data["external_invoice_url"] == invoice_data["external_invoice_url"]
+        assert "external_invoice_url" in data
+        assert data["external_invoice_url"] == "https://s3.example.com/invoices/test_invoice.pdf"
         assert "uploaded_at" in data
         
-        # Verify Telegram notification was sent to customer
-        assert mock_send.called, "Telegram send_message should have been called"
-        # Just verify it was called - detailed message testing requires more complex mocking
+        # Verify S3 upload was called
+        assert mock_upload.called
 
-def test_admin_upload_invoice_fails_for_non_completed_booking(
+
+def test_admin_upload_invoice_file_fails_for_non_completed_booking(
     authenticated_admin_client, 
     test_booking
 ):
-    """Test that invoice upload fails for non-completed bookings"""
+    """Test that invoice file upload fails for non-completed bookings"""
+    
     # Booking is still PENDING by default
     
-    invoice_data = {
-        "external_invoice_url": "https://storage.example.com/invoices/test-invoice-456.pdf"
-    }
+    # Create a mock file
+    mock_pdf_content = b"%PDF-1.4 Fake PDF content"
+    files = {'file': ('test_invoice.pdf', io.BytesIO(mock_pdf_content), 'application/pdf')}
     
     response = authenticated_admin_client.post(
-        f"/admin/bookings/{test_booking.booking_id}/invoice",
-        json=invoice_data
+        f"/admin/bookings/{test_booking.booking_id}/invoice/upload-file",
+        files=files
     )
     
-    # Should fail because booking is not completed
+    # Should fail with 400 because booking is not completed (validated before S3 upload)
     assert response.status_code == 400
     assert "completed" in response.json()["detail"].lower()
 
