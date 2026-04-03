@@ -227,6 +227,26 @@ def test_team(db_session):
     return team
 
 @pytest.fixture(scope="function")
+def technical_user_with_telegram(db_session, test_team):
+    """Create a technical user with Telegram chat ID linked to a team"""
+    from src.utils.hash_password import hash_password
+    tech = TechnicalModel(
+        username="techuser",
+        password=hash_password("techpassword"),
+        name="Test Technician",
+        phone_number="+9876543210",
+        telegram_chat_id="123456789",  # Mock Telegram chat ID
+        role="technical",
+        status='free',
+        is_active=True,
+        team_id=test_team.team_id
+    )
+    db_session.add(tech)
+    db_session.commit()
+    db_session.refresh(tech)
+    return tech
+
+@pytest.fixture(scope="function")
 def test_make_toyota(db_session):
     make = Make(name="Toyota", is_active=True)
     db_session.add(make)
