@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 from uuid import UUID
 from datetime import date
@@ -16,6 +17,8 @@ from src.config.telegram_client import telegram_client
 from src.models.booking_model import AdminBookingCreate, BookingStatus
 from src.repositories.booking_repositories import BookingRepository
 from src.models.technical_model import TechnicalTeamCreate
+
+logger = logging.getLogger(__name__)
 class AdminController:
     """Handles the business logic for admin authentication and management."""
 
@@ -185,7 +188,7 @@ class AdminController:
         """
         1. Admin-specific booking creation logic.
         2. Directly assign to a garage or technician.
-        3. Bypass certain validations if needed.
+        3. Auto-assign to main campus if not specified.
         """
         # check user have account or not 
         user = self.booking_repo.user_repo.get_user_by_phone(booking_info.contact_phone)
@@ -195,6 +198,12 @@ class AdminController:
                 phone=booking_info.contact_phone,
                 full_name=booking_info.full_name
             )   
+        
+        # Auto-assign to main campus if not provided (single campus setup)
+        if not booking_info.assigned_garage_id:
+            # For single campus setup, you can set a default garage UUID here
+            # For now, we'll let it be null and admin can assign later
+            logger.info("No garage assigned - booking will be unassigned until admin assigns")
         
         # We don't modify the booking_info object if it's strictly validated by Pydantic
         # Instead, we pass user.user_id to the repo method
@@ -217,6 +226,55 @@ class AdminController:
            await telegram_client.send_message(booking.customer.telegram_chat_id, message)
 
         return booking
+
+    async def upload_invoice_for_booking(self, booking_id: int, invoice_data):
+        """
+        Upload invoice for a completed booking and notify customer via Telegram.
+        """
+        from datetime import datetime
+        from src.models.booking_model import InvoiceResponse
+        
+        # Get the booking with customer info
+        booking = self.booking_repo.get_with_items(booking_id)
+        if not booking:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Booking not found")
+        
+        # Check if booking is completed (optional validation)
+        if booking.status != BookingStatus.COMPLETED:
+            # You can enforce this or allow invoices for any status
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, 
+                detail="Invoice can only be added for completed bookings"
+            )
+        
+        # Create invoice response
+        invoice_response = InvoiceResponse(
+            external_invoice_url=invoice_data.external_invoice_url,
+            uploaded_at=datetime.utcnow()
+        )
+        
+        # Send invoice to customer via Telegram
+        if booking.customer and booking.customer.telegram_chat_id:
+            try:
+                safe_car = f"{booking.car_make} {booking.car_model}"
+                message = (
+                    f"📄 *INVOICE READY*\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"Your service invoice for {safe_car} is ready!\n\n"
+                    f"📎 View invoice: [Click Here]({invoice_data.external_invoice_url})\n\n"
+                    f"Thank you for choosing our service! 🔧"
+                )
+                await telegram_client.send_message(
+                    booking.customer.telegram_chat_id,
+                    message,
+                    parse_mode="Markdown"
+                )
+                print(f"✅ Invoice sent to customer for booking {booking_id}")
+            except Exception as e:
+                print(f"⚠️ Failed to send invoice to customer: {e}")
+                # Don't fail the upload if Telegram fails
+        
+        return invoice_response
     
     async def get_daily_overview(self, target_date: date):
         """
@@ -254,6 +312,16 @@ class AdminController:
         """
         return self.booking_repo.search_bookings(query=query, status=status, limit=limit)
     
+    async def get_booking_by_id(self, booking_id: int):
+        """
+        Get detailed information about a specific booking by ID.
+        Includes customer info, items, services, and products.
+        """
+        booking = self.booking_repo.get_full_booking_details(booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail=f"Booking with ID {booking_id} not found")
+        return booking
+    
     async def assign_team(self, booking_id: int, technical_team_id: UUID):
         """Assign a technical team to a booking by its UUID."""
         # Check if team exists
@@ -264,8 +332,89 @@ class AdminController:
         booking = self.booking_repo.assign_technical_team(booking_id, team.team_id)
         if not booking:
             raise HTTPException(status_code=404, detail="Booking not found.")
+        
+        # Send notification to technical team
+        try:
+            await self._notify_technical_team_of_assignment(booking, team)
+        except Exception as e:
+            logger.error(f"⚠️ Technical team notification failed: {e}")
             
         return booking
+    
+    async def _notify_technical_team_of_assignment(self, booking, team):
+        """
+        Internal helper to send Telegram notification to technical team members
+        when a booking is assigned to them.
+        """
+        
+        # Get all active technical staff in the team with telegram_chat_id
+        tech_staff_list = (
+            self.db.query(TechnicalModel)
+            .filter(
+                TechnicalModel.team_id == team.team_id,
+                TechnicalModel.is_active,
+                TechnicalModel.telegram_chat_id.isnot(None)
+            )
+            .all()
+        )
+        
+        if not tech_staff_list:
+            logger.warning(f"No active technical staff with Telegram found for team {team.team_name}")
+            return
+        
+        # Sanitize data to prevent injection attacks
+        safe_car = f"{booking.car_make} {booking.car_model}"
+        safe_date = booking.appointment_date.strftime("%Y-%m-%d") if booking.appointment_date else "TBD"
+        safe_time = booking.start_time.strftime("%H:%M") if booking.start_time else "TBD"
+        safe_location = booking.service_location or "Garage"
+        
+        # Build service/product summary
+        services_summary = []
+        if booking.items:
+            for item in booking.items:
+                if item.service and item.service.name:
+                    services_summary.append(item.service.name)
+                elif item.product and item.product.name:
+                    services_summary.append(item.product.name)
+        
+        services_text = ", ".join(services_summary[:3])  # Limit to first 3 items
+        if len(services_summary) > 3:
+            services_text += f" (+{len(services_summary) - 3} more)"
+        elif not services_text:
+            services_text = "General service"
+        
+        # Build notification message
+        notification_msg = (
+            f"🔧 *NEW JOB ASSIGNED*\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"🚗 *Vehicle:* {safe_car}\n"
+            f"📅 *Date:* {safe_date}\n"
+            f"⏰ *Time:* {safe_time}\n"
+            f"📍 *Location:* {safe_location}\n"
+            f"🛠️ *Service:* {services_text}\n\n"
+            f"💰 *Total:* ${booking.total_price}\n\n"
+            f"👉 Check your dashboard for full details."
+        )
+        
+        # Send to all team members with Telegram
+        sent_count = 0
+        for tech in tech_staff_list:
+            if tech.telegram_chat_id:
+                try:
+                    await telegram_client.send_message(
+                        chat_id=tech.telegram_chat_id,
+                        text=notification_msg,
+                        parse_mode="Markdown"
+                    )
+                    sent_count += 1
+                    logger.info(f"✅ Tech {tech.name} notified for booking {booking.booking_id}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to notify tech {tech.name}: {e}")
+        
+        if sent_count == 0:
+            logger.warning(f"Technical alert: No notifications were sent for team {team.team_name}")
+        else:
+            logger.info(f"📢 Sent {sent_count} notification(s) to team '{team.team_name}'")
     
     # -- technical team management by admin --
 
