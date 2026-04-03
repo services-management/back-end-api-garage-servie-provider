@@ -142,7 +142,7 @@ class VerifyOTP(BaseModel):
     otp_code: str = Field(..., min_length=6, max_length=6)
 
 class AdminBookingCreate(BookingCreate):
-    assigned_garage_id: UUID
+    assigned_garage_id: Optional[UUID] = Field(None, description="Garage/branch ID. If not provided, will auto-assign to main campus.")
     source: BookingSource = Field(example= BookingSource.PHONE)
     internal_note: Optional[str] = Field(None, example="Customer is in a hurry.")
     
