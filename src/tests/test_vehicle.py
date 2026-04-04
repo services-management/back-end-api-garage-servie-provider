@@ -113,3 +113,53 @@ def test_delete_model_admin(authenticated_admin_client, test_model):
 def test_delete_make_admin(authenticated_admin_client, test_make):
     response = authenticated_admin_client.delete(f"/vehicles/make/{test_make.id}")
     assert response.status_code == 204
+
+def test_update_vehicle_admin(authenticated_admin_client, test_vehicle_camry_2022):
+    """Test updating vehicle details with partial data."""
+    payload = {
+        "year": 2023,
+        "engine": "2.5L Turbo",
+        "img_url": "http://example.com/camry_updated.jpg"
+    }
+    response = authenticated_admin_client.patch(
+        f"/vehicles/{test_vehicle_camry_2022.vehicle_id}", 
+        json=payload
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["year"] == 2023
+    assert data["engine"] == "2.5L Turbo"
+    assert data["img_url"] == "http://example.com/camry_updated.jpg"
+    # Verify other fields remain unchanged
+    assert data["vehicle_type"] == test_vehicle_camry_2022.vehicle_type.value
+    assert data["model_id"] == test_vehicle_camry_2022.model_id
+
+def test_update_vehicle_partial_fields(authenticated_admin_client, test_vehicle_civic_2023):
+    """Test updating only one field of a vehicle."""
+    payload = {"fuel_type": FuelType.HYBRID.value}
+    response = authenticated_admin_client.patch(
+        f"/vehicles/{test_vehicle_civic_2023.vehicle_id}", 
+        json=payload
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["fuel_type"] == FuelType.HYBRID.value
+    # Verify other fields remain unchanged
+    assert data["year"] == test_vehicle_civic_2023.year
+    assert data["engine"] == test_vehicle_civic_2023.engine
+
+def test_update_vehicle_not_found(authenticated_admin_client):
+    """Test updating a non-existent vehicle."""
+    payload = {"year": 2024}
+    response = authenticated_admin_client.patch("/vehicles/99999", json=payload)
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
+
+def test_update_vehicle_empty_payload(authenticated_admin_client, test_vehicle_camry_2022):
+    """Test updating vehicle with empty payload."""
+    response = authenticated_admin_client.patch(
+        f"/vehicles/{test_vehicle_camry_2022.vehicle_id}", 
+        json={}
+    )
+    assert response.status_code == 400
+    assert "no fields" in response.json()["detail"].lower()

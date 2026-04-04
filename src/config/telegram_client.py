@@ -1,17 +1,28 @@
 import httpx
 from src.config.database import settings
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
+
 class TelegramClient:
     def __init__(self):
         self.token = settings.TELEGRAM_BOT_TOKEN
-        self.base_url = f"https://api.telegram.org/bot{self.token}"
+        self.username = settings.TELEGRAM_BOT_USERNAME
+        self.base_url = f"https://api.telegram.org/bot{self.token}" if self.token else None
+        
+        logger.info(f"🤖 TelegramClient initialized with bot: @{self.username}")
+        if not self.token:
+            logger.warning("⚠️ Telegram token is missing!")
 
     async def send_message(self, chat_id: int, text: str,parse_mode: str = "Markdown"):
         if not self.token:
-            print("⚠️ Telegram Token is missing! Check your .env file.")
-            return
+            logger.warning("⚠️ Telegram Token is missing! Check your .env file.")
+            return None
             
         url = f"{self.base_url}/sendMessage"
+        logger.info(f"📤 Sending message to chat_id: {chat_id} via bot @{self.username}")
+        
         payload = {
             "chat_id": chat_id, 
             "text": text, 
@@ -23,7 +34,9 @@ class TelegramClient:
             try:
                 response = await client.post(url, json=payload)
                 response.raise_for_status()
-                return response.json()
+                result = response.json()
+                logger.info(f"✅ Message sent successfully to {chat_id}")
+                return result
             except httpx.HTTPStatusError as e:
                 print(f"Telegram API Error: {e.response.text}")
             except Exception as e:

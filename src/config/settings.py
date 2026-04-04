@@ -10,7 +10,6 @@ load_dotenv()
 
 class Settings(BaseSettings):
     """Application settings.
-
     Prefer an explicit DATABASE_URL. If it's not provided, construct one from
     DB_USER, DB_PASSWORD, DB_HOST, DB_PORT and DB_NAME. This makes it easy to
     configure the app via environment variables or a .env file.
@@ -27,8 +26,10 @@ class Settings(BaseSettings):
     DB_DRIVER: str = os.getenv("DB_DRIVER", "psycopg2")
     # telegram bot token 
     DOMAIN: str = os.getenv("DOMAIN", "")
-    TELEGRAM_BOT_TOKEN: Optional[str] = None
-    TELEGRAM_BOT_USERNAME: Optional[str] = os.getenv("TELEGRAM_BOT_USERNAME", "my_garage_service_bot")
+    TELEGRAM_BOT_TOKEN: Optional[str] = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    TELEGRAM_BOT_USERNAME: Optional[str] = os.getenv("TELEGRAM_BOT_USERNAME", "")
+    
+    # Test Telegram bot configuration (for development/testing environments)
     # JWT settings (optional - only needed for authentication endpoints)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     SECRET_KEY: Optional[str] = os.getenv("SECRET_KEY", "a_very_secret_key_change_in_production")
@@ -40,6 +41,10 @@ class Settings(BaseSettings):
     S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "")
     S3_BUCKET: str = os.getenv("S3_BUCKET", "")
     S3_REGION: str = os.getenv("S3_REGION", "us-east-1")
+
+    # default admin account (optional - used for initial setup)
+    DEFAULT_ADMIN_USERNAME: Optional[str] = os.getenv("DEFAULT_ADMIN_USERNAME", "admin")
+    DEFAULT_ADMIN_PASSWORD: Optional[str] = os.getenv("DEFAULT_ADMIN_PASSWORD", "admin123")
 
     @model_validator(mode="after")
     def validate_s3_settings(self):
@@ -64,7 +69,6 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def construct_db_url(self):
         """Construct DATABASE_URL from individual components if not provided.
-        
         Note: Database connection works independently of SECRET_KEY.
         SECRET_KEY is only required for JWT token generation in auth endpoints.
         """

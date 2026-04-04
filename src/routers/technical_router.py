@@ -115,7 +115,21 @@ async def read_worklist(
 ):
     """Returns all jobs for the mechanic's specific team."""
     # SECURITY: Verify user can only access their own team's worklist
-    if not current_user.team_id or str(current_user.team_id) != str(team_id):
+    # Allow access if:
+    # 1. User is a team member (team_id matches), OR
+    # 2. User is the team lead of the requested team
+    
+    is_team_member = current_user.team_id and str(current_user.team_id) == str(team_id)
+    
+    # Check if user is the team lead
+    is_team_lead = False
+    if not is_team_member:
+        from src.schemas.techincal import TechnicalTeam
+        team = service.db.query(TechnicalTeam).filter(TechnicalTeam.team_id == team_id).first()
+        if team and team.team_lead_id and str(team.team_lead_id) == str(current_user.technical_id):
+            is_team_lead = True
+    
+    if not is_team_member and not is_team_lead:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied. You can only view your own team's worklist."
