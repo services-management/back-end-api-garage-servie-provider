@@ -19,7 +19,7 @@ from src.models.admin_model import (AdminCreate, AdminLogin, AdminOut,
                                     AdminUpdate, InvoiceUpload)
 from src.models.booking_model import (AdminBookingCreate, BookingHistoryResponse)
 from src.models.technical_model import (  # Assuming you have a TechnicalOut
-    TechnicalCreate, TechnicalOut, TechnicalTeamCreate, TechnicalTeamOut)
+    TechnicalCreate, TechnicalOut, TechnicalTeamCreate, TechnicalTeamOut, TechnicalTeamUpdate)
 from src.models.booking_model import BookingStatus
 # Your Repositories (Used for dependency injection)
 from src.repositories.admin_repositories import AdminRepository
@@ -370,9 +370,30 @@ async def create_technical_team(
 ):
     """
     Creates a new technical team.
-    Team lead can be assigned later if not provided.
+    If team_lead_id is provided, the team lead will be automatically assigned to this team.
     """
     return await controller.create_new_team(team_in)
+
+
+@router.put("/teams/{team_id}", response_model=TechnicalTeamOut, summary="Update Technical Team")
+async def update_technical_team(
+    team_id: UUID,
+    team_update: TechnicalTeamUpdate,
+    controller: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """
+    Updates team details including name, description, and team lead.
+    If team_lead_id is changed, the new team lead will be automatically assigned to this team.
+    """
+    
+    # Get existing team
+    team = controller.tech_repo.get_team(team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    # Update team (this will auto-assign new team lead's team_id)
+    return controller.tech_repo.update_team(team, team_update)
 
 
 @router.get("/teams", response_model=List[TechnicalTeamOut], summary="List all Technical Teams")

@@ -8,7 +8,7 @@ from src.repositories.vehicle_repository import VehicleRepository
 from src.controller.vehicle_controller import Vehiclecontroller
 from src.service.s3_service import S3Service
 from src.models.vehicle_model import (
-    VehicleCreate, MakeBase, ModelBase, VehicleBase, 
+    VehicleCreate, MakeBase, ModelBase, VehicleBase, VehicleUpdate,
     Modelupdate, Makeupdate, Makecreate, Modelcreate
 )
 from src.core.enums import VehicleType, FuelType, DriveType, TransmissionType
@@ -119,6 +119,33 @@ def get_vehicle_details(vehicle_id: int, repo: VehicleRepository = Depends(get_r
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
     return vehicle
+
+@router.patch("/{vehicle_id}", response_model=VehicleBase)
+def update_vehicle(
+    vehicle_id: int,
+    vehicle_update: VehicleUpdate,
+    controller: Vehiclecontroller = Depends(get_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """
+    Update vehicle details. Only provided fields will be updated.
+    """
+    # Check if vehicle exists
+    existing_vehicle = controller.vehicle_repo.get_by_id(vehicle_id)
+    if not existing_vehicle:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+    
+    # Convert Pydantic model to dict, excluding unset fields
+    update_data = vehicle_update.model_dump(exclude_unset=True)
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    try:
+        updated_vehicle = controller.update_vehicle(vehicle_id, update_data)
+        return updated_vehicle
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update vehicle: {str(e)}")
 
 @router.patch("/make/{make_id}", response_model=MakeBase)
 def update_make(

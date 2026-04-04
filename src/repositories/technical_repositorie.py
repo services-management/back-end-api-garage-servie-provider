@@ -102,7 +102,7 @@ class TechnicalRepository:
         ).first()
 
     def create_team(self, team_in: TechnicalTeamCreate) -> TechnicalTeam:
-        """Creates a new technical team."""
+        """Creates a new technical team and assigns team_lead's team_id if provided."""
         db_team = TechnicalTeam(
             team_name=team_in.team_name,
             description=team_in.description,
@@ -111,6 +111,20 @@ class TechnicalRepository:
         )
         try:
             self.db.add(db_team)
+            self.db.flush()  # Flush to get team_id before commit
+            
+            # If a team lead is specified, automatically assign their team_id
+            if team_in.team_lead_id:
+                tech_user = self.db.query(TechnicalModel).filter(
+                    TechnicalModel.technical_id == team_in.team_lead_id
+                ).first()
+                
+                if tech_user:
+                    tech_user.team_id = db_team.team_id
+                    print(f"✅ Auto-assigned team_lead {tech_user.name} to team '{db_team.team_name}'")
+                else:
+                    print(f"⚠️ Warning: Team lead ID {team_in.team_lead_id} not found")
+            
             self.db.commit()
             self.db.refresh(db_team)
             return db_team
@@ -132,15 +146,35 @@ class TechnicalRepository:
         return self.db.query(TechnicalTeam).offset(skip).limit(limit).all()
 
     def update_team(self, db_team: TechnicalTeam, obj_in: Union[TechnicalTeamUpdate, dict]) -> TechnicalTeam:
-        """Updates team details like name, description, or team lead."""
+        """Updates team details like name, description, or team lead. Auto-assigns new team lead's team_id."""
         if isinstance(obj_in, dict):
             update_data = obj_in
         else:
             update_data = obj_in.dict(exclude_unset=True)
 
+        # Track if team_lead_id is being changed
+        old_team_lead_id = db_team.team_lead_id
+        new_team_lead_id = update_data.get('team_lead_id', None)
+        
         for key, value in update_data.items():
             if hasattr(db_team, key):
                 setattr(db_team, key, value)
+
+        # If team_lead_id was added or changed, update the new lead's team_id
+        if new_team_lead_id and new_team_lead_id != old_team_lead_id:
+            tech_user = self.db.query(TechnicalModel).filter(
+                TechnicalModel.technical_id == new_team_lead_id
+            ).first()
+            
+            if tech_user:
+                tech_user.team_id = db_team.team_id
+                print(f"✅ Auto-assigned new team_lead {tech_user.name} to team '{db_team.team_name}'")
+            else:
+                print(f"⚠️ Warning: New team lead ID {new_team_lead_id} not found")
+        
+        # Note: We do NOT automatically clear old team lead's team_id when removed
+        # because they might still be a regular team member. Admin should use
+        # remove_member_from_team endpoint if they want to fully remove someone.
 
         self.db.add(db_team)
         self.db.commit()
@@ -173,14 +207,44 @@ class TechnicalRepository:
         if not tech_user:
             return None
         
-        # Get team name if assigned
-        team_name = tech_user.team.team_name if tech_user.team else None
+        # Get team name and determine which team's bookings to count
+        # Check if user is a team member OR a team lead
+        team_for_query = None
+        team_name = None
+        
+        if tech_user.team_id:
+            # User is a team member
+            team_for_query = tech_user.team_id
+            team_name = tech_user.team.team_name if tech_user.team else None
+        else:
+            # Check if user is a team lead
+            from src.schemas.techincal import TechnicalTeam
+            led_team = self.db.query(TechnicalTeam).filter(
+                TechnicalTeam.team_lead_id == tech_user.technical_id
+            ).first()
+            
+            if led_team:
+                team_for_query = led_team.team_id
+                team_name = led_team.team_name
         
         # Query bookings for this technical's team in date range
-        bookings_query = self.db.query(Booking).filter(
-            Booking.technical_team_id == tech_user.team_id,
-            Booking.appointment_date.between(start_date, end_date)
-        )
+        if team_for_query:
+            bookings_query = self.db.query(Booking).filter(
+                Booking.technical_team_id == team_for_query,
+                Booking.appointment_date.between(start_date, end_date)
+            )
+        else:
+            # No team association - return zero metrics
+            return TechnicalPerformance(
+                technical_id=tech_user.technical_id,
+                name=tech_user.name,
+                team_name=None,
+                total_jobs=0,
+                completed_jobs=0,
+                in_progress_jobs=0,
+                completion_rate=0.0,
+                total_revenue=Decimal("0.00")
+            )
         
         # Calculate metrics
         total_jobs = bookings_query.count()

@@ -305,6 +305,161 @@ def test_admin_assign_team_notification_message_content(
         assert "$250" in message_text or "250.00" in message_text
 
 
+def test_admin_assign_team_notification_includes_team_lead(
+    authenticated_admin_client,
+    test_booking,
+    test_team,
+    technical_user_with_telegram,
+    db_session
+):
+    """Test that team lead receives notification even if not in team members list"""
+    from src.schemas.techincal import TechnicalModel
+    from src.utils.hash_password import hash_password
+    
+    # Create a team lead with Telegram chat ID but NOT assigned to the team as a member
+    # (team_lead_id is set on the team, but the lead's team_id might be NULL)
+    team_lead = TechnicalModel(
+        username="teamleaduser",
+        password=hash_password("password"),
+        name="Team Lead User",
+        phone_number="+4444444444",
+        telegram_chat_id="TEAM_LEAD_CHAT_ID",  # Different chat ID
+        role="technical",
+        status='free',
+        is_active=True,
+        team_id=None  # Team lead might not have team_id set
+    )
+    db_session.add(team_lead)
+    db_session.commit()
+    
+    # Set this user as the team lead
+    test_team.team_lead_id = team_lead.technical_id
+    db_session.commit()
+    db_session.refresh(test_team)
+    
+    with patch("src.controller.admin_controller.telegram_client.send_message", new_callable=AsyncMock) as mock_send:
+        mock_send.return_value = True
+        
+        payload = {"technical_team_id": str(test_team.team_id)}
+        response = authenticated_admin_client.post(
+            f"/admin/bookings/{test_booking.booking_id}/assign",
+            json=payload
+        )
+        
+        assert response.status_code == 200
+        # Should be called twice: once for regular tech, once for team lead
+        assert mock_send.call_count == 2
+        
+        # Extract all chat IDs that were called
+        called_chat_ids = [call[1]["chat_id"] for call in mock_send.call_args_list]
+        assert technical_user_with_telegram.telegram_chat_id in called_chat_ids
+        assert "TEAM_LEAD_CHAT_ID" in called_chat_ids
+        
+        # Verify team lead gets special notification
+        team_lead_calls = [call for call in mock_send.call_args_list 
+                          if call[1]["chat_id"] == "TEAM_LEAD_CHAT_ID"]
+        assert len(team_lead_calls) == 1
+        team_lead_message = team_lead_calls[0][1]["text"]
+        assert "TEAM LEAD NOTIFICATION" in team_lead_message or "⭐" in team_lead_message
+
+
+def test_admin_assign_team_notification_team_lead_without_telegram(
+    authenticated_admin_client,
+    test_booking,
+    test_team,
+    technical_user_with_telegram,
+    db_session
+):
+    """Test that assignment succeeds even if team lead has no Telegram"""
+    from src.schemas.techincal import TechnicalModel
+    from src.utils.hash_password import hash_password
+    
+    # Create a team lead WITHOUT Telegram chat ID
+    team_lead_no_telegram = TechnicalModel(
+        username="teamleadnotg",
+        password=hash_password("password"),
+        name="Team Lead No Telegram",
+        phone_number="+5555555555",
+        telegram_chat_id=None,  # No Telegram
+        role="technical",
+        status='free',
+        is_active=True,
+        team_id=test_team.team_id
+    )
+    db_session.add(team_lead_no_telegram)
+    db_session.commit()
+    
+    # Set this user as the team lead
+    test_team.team_lead_id = team_lead_no_telegram.technical_id
+    db_session.commit()
+    db_session.refresh(test_team)
+    
+    with patch("src.controller.admin_controller.telegram_client.send_message", new_callable=AsyncMock) as mock_send:
+        mock_send.return_value = True
+        
+        payload = {"technical_team_id": str(test_team.team_id)}
+        response = authenticated_admin_client.post(
+            f"/admin/bookings/{test_booking.booking_id}/assign",
+            json=payload
+        )
+        
+        assert response.status_code == 200
+        # Should only notify the regular technician (team lead has no Telegram)
+        assert mock_send.call_count == 1
+        
+        called_chat_id = mock_send.call_args[1]["chat_id"]
+        assert called_chat_id == technical_user_with_telegram.telegram_chat_id
+
+
+def test_admin_assign_team_notification_team_lead_inactive(
+    authenticated_admin_client,
+    test_booking,
+    test_team,
+    technical_user_with_telegram,
+    db_session
+):
+    """Test that inactive team lead doesn't receive notifications"""
+    from src.schemas.techincal import TechnicalModel
+    from src.utils.hash_password import hash_password
+    
+    # Create an INACTIVE team lead with Telegram
+    team_lead_inactive = TechnicalModel(
+        username="teamleadinactive",
+        password=hash_password("password"),
+        name="Inactive Team Lead",
+        phone_number="+6666666666",
+        telegram_chat_id="INACTIVE_LEAD_CHAT_ID",
+        role="technical",
+        status='off_duty',
+        is_active=False,  # Inactive
+        team_id=test_team.team_id
+    )
+    db_session.add(team_lead_inactive)
+    db_session.commit()
+    
+    # Set this user as the team lead
+    test_team.team_lead_id = team_lead_inactive.technical_id
+    db_session.commit()
+    db_session.refresh(test_team)
+    
+    with patch("src.controller.admin_controller.telegram_client.send_message", new_callable=AsyncMock) as mock_send:
+        mock_send.return_value = True
+        
+        payload = {"technical_team_id": str(test_team.team_id)}
+        response = authenticated_admin_client.post(
+            f"/admin/bookings/{test_booking.booking_id}/assign",
+            json=payload
+        )
+        
+        assert response.status_code == 200
+        # Should only notify active technicians, not inactive team lead
+        assert mock_send.call_count == 1
+        
+        called_chat_id = mock_send.call_args[1]["chat_id"]
+        assert called_chat_id == technical_user_with_telegram.telegram_chat_id
+        assert "INACTIVE_LEAD_CHAT_ID" not in called_chat_id
+
+
 def test_admin_assign_team_notification_handles_telegram_error(
     authenticated_admin_client,
     test_booking,
@@ -452,11 +607,15 @@ def test_admin_get_overview(authenticated_admin_client, test_booking):
     assert "stats" in data
     assert "bookings" in data
     
-    # Verify bookings in overview include customer info if present
+    # Verify bookings in overview include customer info as nested object
     if data["bookings"]:
         for booking in data["bookings"]:
-            assert "full_name" in booking or "customer" in booking
-            assert "phone" in booking or "customer" in booking
+            assert "customer" in booking, "Booking should have customer field"
+            assert booking["customer"] is not None, "Customer should not be None"
+            assert "full_name" in booking["customer"], "Customer should have full_name"
+            assert "phone" in booking["customer"], "Customer should have phone"
+            assert booking["customer"]["full_name"] is not None, "Customer full_name should not be None"
+            assert booking["customer"]["phone"] is not None, "Customer phone should not be None"
 
 def test_booking_response_includes_customer_details(authenticated_admin_client, test_user, test_service):
     """Test that BookingHistoryResponse properly extracts customer details from relationship"""

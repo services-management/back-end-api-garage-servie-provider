@@ -3,7 +3,7 @@ from typing import Optional
 from uuid import UUID
 from datetime import date
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from src.config.settings import settings
 from src.models.admin_model import AdminCreate, AdminLogin, AdminUpdate, AdminOut
 from src.models.technical_model import TechnicalCreate, TechnicalOut
@@ -72,9 +72,8 @@ class AdminController:
 
     def _generate_magic_link(self, user_id: UUID, role: str) -> str:
         """Generates a Telegram deep link for account linking."""
-        bot_username = settings.TELEGRAM_BOT_USERNAME
         # Format: https://t.me/bot?start=ROLE_UUID
-        return f"https://t.me/{bot_username}?start={role}_{user_id}"
+        return f"https://t.me/{settings.TELEGRAM_BOT_USERNAME}?start={role}_{user_id}"
 
     def get_admin_magic_link(self, admin_id: UUID) -> dict:
         """Get the Telegram magic link for an existing admin."""
@@ -283,7 +282,8 @@ class AdminController:
         2. All bookings that are PENDING (action required) or scheduled for that day.
         """
         from sqlalchemy import or_
-        from src.schemas.booking import Booking, BookingStatus
+        from src.schemas.booking import Booking, BookingStatus, BookingItem
+        from src.models.booking_model import BookingHistoryResponse
         
         # 1. Stats specifically for target_date
         stats = self.booking_repo.get_booking_counts_by_status(target_date)
@@ -296,12 +296,17 @@ class AdminController:
                 Booking.status == BookingStatus.PENDING
             )
         ).options(
-            joinedload(Booking.customer)
+            joinedload(Booking.customer),
+            selectinload(Booking.items).joinedload(BookingItem.service),
+            selectinload(Booking.items).joinedload(BookingItem.product)
         ).order_by(Booking.status, Booking.start_time).all()
+
+        # Convert SQLAlchemy models to Pydantic models to include customer info
+        bookings_response = [BookingHistoryResponse.model_validate(b) for b in bookings]
 
         return {
             "stats": stats,
-            "bookings": bookings
+            "bookings": bookings_response
         }
     
     # Inside your AdminController class
@@ -343,9 +348,12 @@ class AdminController:
     
     async def _notify_technical_team_of_assignment(self, booking, team):
         """
-        Internal helper to send Telegram notification to technical team members
-        when a booking is assigned to them.
+        Internal helper to send Telegram notification to ALL technical team members
+        including team lead when a booking is assigned to them.
         """
+        
+        logger.info(f"🔍 Starting notification for team: {team.team_name} (ID: {team.team_id})")
+        logger.info(f"🔍 Booking ID: {booking.booking_id}")
         
         # Get all active technical staff in the team with telegram_chat_id
         tech_staff_list = (
@@ -357,6 +365,30 @@ class AdminController:
             )
             .all()
         )
+        
+        logger.info(f"🔍 Found {len(tech_staff_list)} active staff with telegram_chat_id")
+        for tech in tech_staff_list:
+            logger.info(f"   - {tech.name} (ID: {tech.technical_id}, Chat ID: {tech.telegram_chat_id})")
+        
+        # Also get team lead separately to ensure they're notified
+        team_lead = None
+        if team.team_lead_id:
+            team_lead = (
+                self.db.query(TechnicalModel)
+                .filter(
+                    TechnicalModel.technical_id == team.team_lead_id,
+                    TechnicalModel.is_active,
+                    TechnicalModel.telegram_chat_id.isnot(None)
+                )
+                .first()
+            )
+            
+            # If team lead exists and has telegram_chat_id but is not in tech_staff_list, add them
+            if team_lead and team_lead not in tech_staff_list:
+                logger.info(f"Adding team lead {team_lead.name} to notification list")
+                tech_staff_list.append(team_lead)
+            elif team_lead and not team_lead.telegram_chat_id:
+                logger.warning(f"Team lead {team_lead.name} has no telegram_chat_id - cannot notify")
         
         if not tech_staff_list:
             logger.warning(f"No active technical staff with Telegram found for team {team.team_name}")
@@ -383,6 +415,9 @@ class AdminController:
         elif not services_text:
             services_text = "General service"
         
+        # Identify team lead name for personalized message
+        team_lead_name = team_lead.name if team_lead else None
+        
         # Build notification message
         notification_msg = (
             f"🔧 *NEW JOB ASSIGNED*\n"
@@ -393,28 +428,41 @@ class AdminController:
             f"📍 *Location:* {safe_location}\n"
             f"🛠️ *Service:* {services_text}\n\n"
             f"💰 *Total:* ${booking.total_price}\n\n"
-            f"👉 Check your dashboard for full details."
         )
         
-        # Send to all team members with Telegram
+        # Add team lead info if exists
+        if team_lead_name:
+            notification_msg += f"👤 *Team Lead:* {team_lead_name}\n\n"
+        
+        notification_msg += "👉 Check your dashboard for full details."
+        
+        # Send to all team members with Telegram (including team lead if they have chat_id)
         sent_count = 0
+        failed_count = 0
         for tech in tech_staff_list:
             if tech.telegram_chat_id:
                 try:
+                    # Add personalization if this is the team lead
+                    personal_msg = notification_msg
+                    if team_lead and tech.technical_id == team_lead.technical_id:
+                        personal_msg = f"⭐ *TEAM LEAD NOTIFICATION*\n\n{notification_msg}"
+                    
                     await telegram_client.send_message(
                         chat_id=tech.telegram_chat_id,
-                        text=notification_msg,
+                        text=personal_msg,
                         parse_mode="Markdown"
                     )
                     sent_count += 1
-                    logger.info(f"✅ Tech {tech.name} notified for booking {booking.booking_id}")
+                    role_label = "(Team Lead)" if (team_lead and tech.technical_id == team_lead.technical_id) else ""
+                    logger.info(f"✅ Tech {tech.name} {role_label} notified for booking {booking.booking_id}")
                 except Exception as e:
+                    failed_count += 1
                     logger.error(f"❌ Failed to notify tech {tech.name}: {e}")
         
         if sent_count == 0:
             logger.warning(f"Technical alert: No notifications were sent for team {team.team_name}")
         else:
-            logger.info(f"📢 Sent {sent_count} notification(s) to team '{team.team_name}'")
+            logger.info(f"📢 Sent {sent_count} notification(s) to team '{team.team_name}' ({failed_count} failed)")
     
     # -- technical team management by admin --
 
