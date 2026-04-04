@@ -10,7 +10,6 @@ load_dotenv()
 
 class Settings(BaseSettings):
     """Application settings.
-
     Prefer an explicit DATABASE_URL. If it's not provided, construct one from
     DB_USER, DB_PASSWORD, DB_HOST, DB_PORT and DB_NAME. This makes it easy to
     configure the app via environment variables or a .env file.
@@ -43,9 +42,9 @@ class Settings(BaseSettings):
     S3_BUCKET: str = os.getenv("S3_BUCKET", "")
     S3_REGION: str = os.getenv("S3_REGION", "us-east-1")
 
-    # default admin account 
-    DEFAULT_ADMIN_USERNAME: str = os.getenv("DEFAULT_ADMIN_USERNAME")
-    DEFAULT_ADMIN_PASSWORD: str = os.getenv("DEFAULT_ADMIN_PASSWORD")
+    # default admin account (optional - used for initial setup)
+    DEFAULT_ADMIN_USERNAME: Optional[str] = os.getenv("DEFAULT_ADMIN_USERNAME", "admin")
+    DEFAULT_ADMIN_PASSWORD: Optional[str] = os.getenv("DEFAULT_ADMIN_PASSWORD", "admin123")
 
     @model_validator(mode="after")
     def validate_s3_settings(self):
@@ -70,7 +69,6 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def construct_db_url(self):
         """Construct DATABASE_URL from individual components if not provided.
-        
         Note: Database connection works independently of SECRET_KEY.
         SECRET_KEY is only required for JWT token generation in auth endpoints.
         """
