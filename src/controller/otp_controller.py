@@ -3,7 +3,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from src.repositories.auth_repository import AuthRepository
 from src.repositories.user_respositories import UserRepository
-from src.service.auth import create_token_pair, ACCESS_TOKEN_EXPIRE_MINUTES
+from src.service.auth import create_token_pair
 from src.config.telegram_client import telegram_client
 from src.models.booking_model import VerifyOTP, LoginRequest
 from src.schemas.auth import Token
@@ -51,13 +51,11 @@ class OtpService:
             self.user_repo.upgrade_shadow_to_active(user.user_id)
             print(f"User {user.user_id} upgraded from GUEST to CUSTOMER.")
         
-        # Generate JWT access and refresh tokens
+        # Generate JWT access token
         token_data = {"sub": str(user.user_id), "role": "ACTIVE"}
-        access_token, refresh_token = create_token_pair(token_data)
+        access_token, _ = create_token_pair(token_data)
         
         return Token(
             access_token=access_token,
-            refresh_token=refresh_token,
-            token_type="bearer",
-            expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+            token_type="bearer"
         )
