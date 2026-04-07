@@ -18,7 +18,7 @@ class AuthRepository:
         return self.db.query(OTP).filter(
             OTP.phone == phone,
             OTP.otp_code == otp_code,
-            OTP.is_used ,  # ✅ Changed from 'not OTP.is_used'
+            OTP.is_used.is_(False),  # Only return unused OTPs
             OTP.expires_at > datetime.utcnow()
         ).first()
 

@@ -14,6 +14,7 @@ import pytest
 from datetime import date, time, timedelta
 from uuid import uuid4
 from decimal import Decimal
+from unittest.mock import patch
 
 from src.schemas.booking import BookingStatus, BookingSource, UserStatus
 from src.schemas.booking import User, Booking, BookingItem
@@ -499,18 +500,25 @@ class TestConfirmedBookingLifecycle:
     def test_upload_invoice_for_booking(
         self, authenticated_admin_client, confirmed_booking
     ):
-        """Admin can upload invoice for a booking."""
-        payload = {
-            "invoice_url": "https://storage.example.com/invoices/test-invoice.pdf"
-        }
+        """Admin can upload invoice file to S3 for a booking."""
+        import io
         
-        response = authenticated_admin_client.post(
-            f"/admin/bookings/{confirmed_booking.booking_id}/invoice",
-            json=payload
-        )
+        # Create a mock PDF file
+        mock_pdf_content = b"%PDF-1.4 Fake PDF content"
         
-        # Accept 201 (success) or 422 (validation - invoice endpoint may require different fields)
-        assert response.status_code in [201, 422]
+        with patch("src.service.s3_service.S3Service.upload_file_from_bytes") as mock_upload:
+            mock_upload.return_value = "https://s3.example.com/invoices/test.pdf"
+            
+            # Upload file using multipart/form-data
+            files = {'file': ('test_invoice.pdf', io.BytesIO(mock_pdf_content), 'application/pdf')}
+            
+            response = authenticated_admin_client.post(
+                f"/admin/bookings/{confirmed_booking.booking_id}/invoice/upload-file",
+                files=files
+            )
+            
+            # Accept 201 (success) or validation errors
+            assert response.status_code in [201, 400]
 
 
 # ============ BOOKING VISIBILITY AND FILTERING ============

@@ -33,10 +33,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],  # Explicit methods only
     allow_headers=["Authorization", "Content-Type"],  # Explicit headers only
 )
-DEFAULT_ADMIN_USERNAME = "super_admin"
-# SECURITY: Generate a secure random password on first startup
-# In production, this should be logged once and then the admin should change it
-DEFAULT_ADMIN_PASSWORD = "change_me_123"
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -48,18 +45,23 @@ async def startup_event():
 
     # --- 2. Setup Telegram Webhook ---
     webhook_url = f"{settings.DOMAIN}/webhook/telegram"
-    telegram_api_url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/setWebhook"
+    bot_token = settings.TELEGRAM_BOT_TOKEN
     
-    async with httpx.AsyncClient(verify = False) as client:
-        try:
-            response = await client.post(telegram_api_url, json={"url": webhook_url})
-            result = response.json()
-            if result.get("ok"):
-                print(f"[OK] Telegram Webhook set to: {webhook_url}")
-            else:
-                print(f"[ERROR] Telegram Webhook Error: {result}")
-        except Exception as e:
-            print(f"[ERROR] Connection Error during Webhook setup: {e}")
+    if bot_token:
+        telegram_api_url = f"https://api.telegram.org/bot{bot_token}/setWebhook"
+        
+        async with httpx.AsyncClient(verify = False) as client:
+            try:
+                response = await client.post(telegram_api_url, json={"url": webhook_url})
+                result = response.json()
+                if result.get("ok"):
+                    print(f"[OK] Telegram Webhook set to: {webhook_url}")
+                else:
+                    print(f"[ERROR] Telegram Webhook Error: {result}")
+            except Exception as e:
+                print(f"[ERROR] Failed to set Telegram Webhook: {e}")
+    else:
+        print("[WARNING] Telegram bot token not configured. Webhook not set.")
 
 def init_db():
     """Initialize database tables"""
@@ -74,12 +76,12 @@ def init_db():
                 print("No admin user found. Creating default admin...")
                 # 2. Call the repository method (which you must implement in AdminRepository)
                 admin_repo.create_default_admin(
-                    username=DEFAULT_ADMIN_USERNAME,
-                    password=DEFAULT_ADMIN_PASSWORD,
+                    username=settings.DEFAULT_ADMIN_USERNAME,
+                    password=settings.DEFAULT_ADMIN_PASSWORD,
                     email_phone="default@service.com", # Include other required fields
                     is_active=True
                 )
-                print(f"✅ Default admin created: {DEFAULT_ADMIN_USERNAME}")
+                print(f"✅ Default admin created: {settings.DEFAULT_ADMIN_USERNAME}")
             else:
                 print("✅ Admin user already exists. Skipping creation.")
             db.commit()

@@ -247,7 +247,21 @@ class TechnicalController:
             )
         
         # SECURITY: Verify booking is assigned to user's team
-        if not booking.technical_team_id or str(booking.technical_team_id) != str(technical_user.team_id):
+        # Allow access if:
+        # 1. User is a team member (team_id matches), OR
+        # 2. User is the team lead of the team assigned to the booking
+        
+        is_team_member = technical_user.team_id and booking.technical_team_id and str(booking.technical_team_id) == str(technical_user.team_id)
+        
+        # Check if user is the team lead
+        is_team_lead = False
+        if not is_team_member and booking.technical_team_id:
+            from src.schemas.techincal import TechnicalTeam
+            team = self.db.query(TechnicalTeam).filter(TechnicalTeam.team_id == booking.technical_team_id).first()
+            if team and team.team_lead_id and str(team.team_lead_id) == str(technical_user.technical_id):
+                is_team_lead = True
+        
+        if not is_team_member and not is_team_lead:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied. You can only update bookings assigned to your team."
@@ -357,6 +371,32 @@ class TechnicalController:
         booking = self.booking_repo.get(report_in.booking_id)
         if not booking:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Booking not found.")
+        
+        # SECURITY: Verify booking is assigned to user's team
+        # Allow access if:
+        # 1. User is a team member (team_id matches), OR
+        # 2. User is the team lead of the team assigned to the booking
+        
+        # First, get the technical user to check their team membership/lead status
+        tech_user = self.tech_repo.get(technical_id)
+        if not tech_user:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Technical user not found.")
+        
+        is_team_member = tech_user.team_id and booking.technical_team_id and str(booking.technical_team_id) == str(tech_user.team_id)
+        
+        # Check if user is the team lead
+        is_team_lead = False
+        if not is_team_member and booking.technical_team_id:
+            from src.schemas.techincal import TechnicalTeam
+            team = self.db.query(TechnicalTeam).filter(TechnicalTeam.team_id == booking.technical_team_id).first()
+            if team and team.team_lead_id and str(team.team_lead_id) == str(tech_user.technical_id):
+                is_team_lead = True
+        
+        if not is_team_member and not is_team_lead:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied. You can only create reports for bookings assigned to your team."
+            )
         
         # Create the report
         try:

@@ -1,6 +1,6 @@
 from uuid import UUID  # Correct type for IDs
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from datetime import date
 from fastapi import Query   
@@ -9,6 +9,8 @@ from src.config.database import \
     get_db  # Assuming this function yields the session
 # Your Controller (Handles the business logic)
 from src.controller.admin_controller import AdminController
+# S3 Service for file uploads
+from src.service.s3_service import S3Service, get_s3_service
 # Assuming a function to verify the current admin user from JWT
 from src.dependency.auth import get_current_admin_user
 # --- Imports from your project ---
@@ -17,7 +19,7 @@ from src.models.admin_model import (AdminCreate, AdminLogin, AdminOut,
                                     AdminUpdate, InvoiceUpload)
 from src.models.booking_model import (AdminBookingCreate, BookingHistoryResponse)
 from src.models.technical_model import (  # Assuming you have a TechnicalOut
-    TechnicalCreate, TechnicalOut, TechnicalTeamCreate, TechnicalTeamOut)
+    TechnicalCreate, TechnicalOut, TechnicalTeamCreate, TechnicalTeamOut, TechnicalTeamUpdate)
 from src.models.booking_model import BookingStatus
 # Your Repositories (Used for dependency injection)
 from src.repositories.admin_repositories import AdminRepository
@@ -211,19 +213,79 @@ async def create_booking_for_customer(
     return await service.create_booking_for_customer(booking_data)
 
 
-
-@router.post("/bookings/{booking_id}/invoice", status_code=status.HTTP_201_CREATED, summary="Upload an Invoice for a Booking")
-async def upload_invoice(
+@router.post("/bookings/{booking_id}/invoice/upload-file", status_code=status.HTTP_201_CREATED, summary="Upload Invoice File to S3")
+async def upload_invoice_file(
     booking_id: int,
-    invoice_data: InvoiceUpload,
+    file: UploadFile = File(..., description="Invoice file (PDF, JPG, PNG, max 10MB)"),
     service: AdminController = Depends(get_admin_controller),
+    s3_service: S3Service = Depends(get_s3_service),
     current_admin: AdminOut = Depends(get_current_admin_user)
 ):
     """
-    Uploads an invoice URL for a completed booking.
+    Uploads invoice file directly to S3 storage and notifies customer via Telegram.
+    
+    Supported formats: PDF, JPG, PNG, JPEG, WEBP
+    Max file size: 10MB
     """
-    return await service.upload_invoice_for_booking(booking_id, invoice_data)
-
+    import os
+    from datetime import datetime
+    
+    # First validate booking exists and is completed BEFORE reading file or uploading to S3
+    # This ensures we return 400 for invalid bookings, not 500
+    await service.upload_invoice_for_booking(
+        booking_id, 
+        InvoiceUpload(external_invoice_url="validation-only-temp")
+    )
+    
+    # Read file content
+    file_content = await file.read()
+    
+    # Validate file size
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+    if len(file_content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File too large. Maximum size: 10MB"
+        )
+    
+    # Get file extension - handle tuple case from TestClient
+    filename = file.filename if isinstance(file.filename, str) else ""
+    _, file_ext = os.path.splitext(filename.lower())
+    if not file_ext:
+        file_ext = ".pdf"  # Default to PDF
+    
+    # Upload to S3
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    safe_filename = f"invoice_booking_{booking_id}_{timestamp}{file_ext}"
+    s3_key = f"invoices/{safe_filename}"
+    
+    # Determine content type
+    content_type_map = {
+        ".pdf": "application/pdf",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp"
+    }
+    content_type = content_type_map.get(file_ext, "application/pdf")
+    
+    # Upload using S3 service
+    invoice_url = s3_service.upload_file_from_bytes(
+        file_bytes=file_content,
+        s3_key=s3_key,
+        content_type=content_type
+    )
+    
+    if not invoice_url:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload invoice to S3 storage"
+        )
+    
+    # Create invoice data object with actual S3 URL and notify customer (second call)
+    invoice_upload_data = InvoiceUpload(external_invoice_url=invoice_url)
+    
+    return await service.upload_invoice_for_booking(booking_id, invoice_upload_data)
 
 @router.post("/bookings/{booking_id}/assign")
 async def assign(
@@ -308,9 +370,30 @@ async def create_technical_team(
 ):
     """
     Creates a new technical team.
-    Team lead can be assigned later if not provided.
+    If team_lead_id is provided, the team lead will be automatically assigned to this team.
     """
     return await controller.create_new_team(team_in)
+
+
+@router.put("/teams/{team_id}", response_model=TechnicalTeamOut, summary="Update Technical Team")
+async def update_technical_team(
+    team_id: UUID,
+    team_update: TechnicalTeamUpdate,
+    controller: AdminController = Depends(get_admin_controller),
+    current_admin: AdminOut = Depends(get_current_admin_user)
+):
+    """
+    Updates team details including name, description, and team lead.
+    If team_lead_id is changed, the new team lead will be automatically assigned to this team.
+    """
+    
+    # Get existing team
+    team = controller.tech_repo.get_team(team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    # Update team (this will auto-assign new team lead's team_id)
+    return controller.tech_repo.update_team(team, team_update)
 
 
 @router.get("/teams", response_model=List[TechnicalTeamOut], summary="List all Technical Teams")
