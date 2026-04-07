@@ -1,0 +1,32 @@
+version: 1.1.1
+date: 07-04-2026
+changes:
+- Booking:
+  - Added booking creation endpoints for both admin and user flows.
+  - Booking creation now returns the created booking object instead of only a success message.
+  - Implemented booking assignment to technical teams.
+  - Added Telegram notifications for booking updates, customer alerts, and admin alerts.
+  - Added technical report submission and approval flow.
+
+- User:
+  - Added user authentication, registration, and profile management.
+  - Added user vehicle registration and booking history support.
+  - Added OTP-based login request and verification flow with Telegram delivery.
+
+- Admin:
+  - Added admin login, profile, and admin management endpoints.
+  - Added admin-level category, product, and inventory management.
+  - Added Telegram deep-link generation for admin account linking and notifications.
+
+- Technical Staff:
+  - Added technical staff login and self-management endpoints.
+  - Added technical job assignment, status updates, and team-specific booking views.
+  - Added Telegram notifications for technicians when reports are approved or booking status changes.
+
+- Category/Product/Inventory:
+  - Added CRUD APIs for categories and products.
+  - Added inventory endpoints for stock retrieval, direct stock updates, restocking, deductions, and low-stock alerts.
+
+- Telegram Integration:
+  - Implemented Telegram bot integration for user OTP delivery, booking notifications, and admin alerts.
+  - Added deep-link generation for admin account linking and notifications.
