@@ -103,9 +103,13 @@ class BookingService:
                 }
             else:
                 # Scenario B: Existing User with Telegram linked
+                # Sanitize user input to prevent Telegram parsing errors
+                safe_name = html.escape(user.full_name or 'there')
+                safe_car = html.escape(str(booking.car_make))
+                
                 msg = (
                     f"🔔 <b>Booking Received!</b>\n\n"
-                    f"Hello {user.full_name or 'there'}, we've received your request for a {booking.car_make}.\n"
+                    f"Hello {safe_name}, we've received your request for a {safe_car}.\n"
                     f"Status: ⏳ <b>Pending Approval</b>\n"
                     f"Date: {booking.appointment_date}\n"
                     f"Booking ID: #{booking.booking_id}"

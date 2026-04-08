@@ -76,7 +76,6 @@ def init_db():
                     username=settings.DEFAULT_ADMIN_USERNAME,
                     password=settings.DEFAULT_ADMIN_PASSWORD,
                     email_phone="default@service.com", # Include other required fields
-                    is_active=True
                 )
                 print(f"✅ Default admin created: {settings.DEFAULT_ADMIN_USERNAME}")
             else:

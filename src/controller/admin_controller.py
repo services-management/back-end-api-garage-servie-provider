@@ -27,6 +27,7 @@ class AdminController:
         self.admin_repo = admin_repo
         self.tech_repo = tech_repo
         self.booking_repo = booking_repo
+        self.logger = logging.getLogger(__name__)
         
 
     def authentication_admin(self, admin_in: AdminLogin) -> Optional[adminModel]:
@@ -214,6 +215,7 @@ class AdminController:
              # The router/schema might already enforce this.
              pass
 
+        # Notify customer if they have Telegram linked
         if booking.customer and booking.customer.telegram_chat_id:
            message = (
             f"✅ *New Appointment Scheduled*\n\n"
@@ -223,6 +225,12 @@ class AdminController:
             f"📍 *Location:* {booking.service_location}"
         )
            await telegram_client.send_message(booking.customer.telegram_chat_id, message)
+
+        # Notify all active admins about the new booking (same as web bookings)
+        try:
+            await self._notify_admins_of_new_booking(booking, user)
+        except Exception as admin_err:
+            self.logger.error(f"⚠️ Admin notification failed: {admin_err}")
 
         return booking
 
@@ -274,6 +282,102 @@ class AdminController:
                 # Don't fail the upload if Telegram fails
         
         return invoice_response
+    
+    async def _notify_admins_of_new_booking(self, booking, user):
+        """
+        Alerts all active admins with telegram_chat_id via Telegram.
+        """
+        # 1. Get all active admins with telegram_chat_id
+        admins = self.admin_repo.get_active_admins_with_telegram()
+        
+        if not admins:
+            self.logger.warning("Admin alert skipped: No active admins with telegram_chat_id found.")
+            return
+
+        # 2. Sanitize data (Prevents crashes if user types '<' or '>' in notes)
+        safe_name = html.escape(user.full_name or "Unknown")
+        safe_note = html.escape(booking.internal_note or "No notes.")
+        safe_car = html.escape(f"{booking.car_make} {booking.car_model}")
+
+        # 3. Build HTML Message
+        admin_msg = (
+            "🔔 <b>NEW BOOKING BY ADMIN</b>\n"
+            "----------------------------\n"
+            f"👤 <b>Customer:</b> {safe_name}\n"
+            f"📞 <b>Phone:</b> <code>{user.phone}</code>\n"
+            f"🚗 <b>Vehicle:</b> {safe_car}\n"
+            f"📅 <b>Date:</b> {booking.appointment_date}\n"
+            f"⏰ <b>Time:</b> {booking.start_time}\n"
+            f"💰 <b>Total:</b> ${booking.total_price}\n"
+            "----------------------------\n"
+            f"📝 <b>Note:</b> <i>{safe_note}</i>\n\n"
+            "👉 <a href='https://yourdashboard.com/bookings'>Open Admin Dashboard</a>"
+        )
+
+        # 4. Send to all active admins with telegram_chat_id
+        sent_count = 0
+        for admin in admins:
+            if admin.telegram_chat_id:
+                try:
+                    await telegram_client.send_message(
+                        chat_id=admin.telegram_chat_id,
+                        text=admin_msg,
+                        parse_mode="HTML" 
+                    )
+                    sent_count += 1
+                    self.logger.info(f"✅ Admin {admin.username} notified for booking {booking.booking_id}")
+                except Exception as e:
+                    self.logger.error(f"❌ Failed to notify admin {admin.username}: {e}")
+    
+    async def _notify_technical_team_of_new_booking(self, booking, team):
+        """
+        Alerts all active technical staff in the assigned team who have telegram_chat_id.
+        """
+        # 1. Get all active technical staff in this team with telegram_chat_id
+        tech_staff_list = self.db.query(TechnicalModel).filter(
+            TechnicalModel.team_id == team.team_id,
+            TechnicalModel.is_active.is_(True),
+            TechnicalModel.telegram_chat_id.isnot(None),
+            TechnicalModel.telegram_chat_id != ""
+        ).all()
+        
+        if not tech_staff_list:
+            self.logger.info(f"No technical staff with Telegram found for team: {team.team_name}")
+            return
+
+        # 2. Sanitize data
+        safe_car = html.escape(f"{booking.car_make} {booking.car_model}")
+        safe_customer = html.escape(booking.customer.full_name or "Unknown")
+        safe_location = html.escape(str(booking.service_location))
+
+        # 3. Build HTML Message
+        tech_msg = (
+            f"🔧 <b>NEW JOB ASSIGNED TO TEAM</b>\n"
+            f"👥 <b>Team:</b> {html.escape(team.team_name)}\n\n"
+            f"🚗 <b>Vehicle:</b> {safe_car}\n"
+            f"👤 <b>Customer:</b> {safe_customer}\n"
+            f"📞 <b>Phone:</b> <code>{booking.contact_phone}</code>\n"
+            f"📅 <b>Date:</b> {booking.appointment_date}\n"
+            f"⏰ <b>Time:</b> {booking.start_time}\n"
+            f"📍 <b>Location:</b> {safe_location}\n\n"
+            f"💬 <b>Note:</b> <i>{html.escape(booking.note or 'None')}</i>\n\n"
+            f"Please prepare for the appointment!"
+        )
+
+        # 4. Send to all technical staff with telegram_chat_id
+        sent_count = 0
+        for tech in tech_staff_list:
+            if tech.telegram_chat_id:
+                try:
+                    await telegram_client.send_message(
+                        chat_id=tech.telegram_chat_id,
+                        text=tech_msg,
+                        parse_mode="HTML"
+                    )
+                    sent_count += 1
+                    self.logger.info(f"✅ Technician {tech.name} notified for booking {booking.booking_id}")
+                except Exception as e:
+                    self.logger.error(f"❌ Failed to notify technician {tech.name}: {e}")
     
     async def get_daily_overview(self, target_date: date):
         """
