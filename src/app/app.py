@@ -22,13 +22,10 @@ app = FastAPI(
 
 )
 configure_mappers()
-origins = [
-    "https://garas-admin.domrey.online",      # Your production frontend
-    "http://localhost:3000",                  # Local development
-]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],  # Explicit methods only
     allow_headers=["Authorization", "Content-Type"],  # Explicit headers only

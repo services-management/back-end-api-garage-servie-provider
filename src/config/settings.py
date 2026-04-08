@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional,List
 
 from dotenv import load_dotenv
 from pydantic import model_validator
@@ -43,8 +43,16 @@ class Settings(BaseSettings):
     S3_REGION: str = os.getenv("S3_REGION", "us-east-1")
 
     # default admin account (optional - used for initial setup)
-    DEFAULT_ADMIN_USERNAME: Optional[str] = os.getenv("DEFAULT_ADMIN_USERNAME", "admin")
-    DEFAULT_ADMIN_PASSWORD: Optional[str] = os.getenv("DEFAULT_ADMIN_PASSWORD", "admin123")
+    DEFAULT_ADMIN_USERNAME: Optional[str] = os.getenv("DEFAULT_ADMIN_USERNAME", "")
+    DEFAULT_ADMIN_PASSWORD: Optional[str] = os.getenv("DEFAULT_ADMIN_PASSWORD", "")
+
+    # CORS settings (comma-separated list of allowed origins)
+    ALLOWED_ORIGINS: str = os.getenv("ALLOWED_ORIGINS", "")
+
+    @property
+    def allowed_origins_list(self) -> List[str]:
+        """Parse ALLOWED_ORIGINS into a list. Handles one or multiple origins."""
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
 
     @model_validator(mode="after")
     def validate_s3_settings(self):
