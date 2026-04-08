@@ -22,14 +22,10 @@ app = FastAPI(
 
 )
 configure_mappers()
-origins = [
-    "https://admin.mrlubekh.com",             # product 
-    "https://garas-admin.domrey.online",      # Your testing frontend
-    "http://localhost:3000",                  # Local development
-]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],  # Explicit methods only
     allow_headers=["Authorization", "Content-Type"],  # Explicit headers only
@@ -80,6 +76,7 @@ def init_db():
                     username=settings.DEFAULT_ADMIN_USERNAME,
                     password=settings.DEFAULT_ADMIN_PASSWORD,
                     email_phone="default@service.com", # Include other required fields
+                    is_active=True
                 )
                 print(f"✅ Default admin created: {settings.DEFAULT_ADMIN_USERNAME}")
             else:
