@@ -23,7 +23,8 @@ app = FastAPI(
 )
 configure_mappers()
 origins = [
-    "https://garas-admin.domrey.online",      # Your production frontend
+    "https://admin.mrlubekh.com",             # product 
+    "https://garas-admin.domrey.online",      # Your testing frontend
     "http://localhost:3000",                  # Local development
 ]
 app.add_middleware(
