@@ -8,7 +8,7 @@ os.environ["S3_ENDPOINT_URL"] = "https://test-s3.example.com"
 os.environ["S3_ACCESS_KEY"] = "test-access-key"
 os.environ["S3_SECRET_KEY"] = "test-secret-key"
 os.environ["S3_BUCKET"] = "test-bucket"
-
+os.environ["ALLOWED_ORIGINS"] = "http://localhost:3000,http://localhost:5173"
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
