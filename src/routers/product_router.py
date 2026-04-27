@@ -189,6 +189,26 @@ def filter_products_by_vehicle(
         limit=limit
     )
 
+@router.get("/search", response_model=List[ProductResponse])
+def search_products(
+    category_id: Optional[int] = Query(None, description="Category ID (int) — ML service passes IDs not names"),
+    brand: Optional[str] = Query(None, description="Brand name — searches within product name"),
+    name: Optional[str] = Query(None, description="Partial product name match"),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """Search products by category ID, brand, or name (for ML service catalog queries).
+    
+    Option B: category_id is an integer (not category name string).
+    """
+    svc = ProductController(db)
+    return svc.search_products(
+        category_id=category_id,
+        brand=brand,
+        name=name,
+        limit=limit
+    )
+
 @router.get("/{product_id}", 
             response_model= ProductResponse)
 def get_product(
@@ -200,7 +220,6 @@ def get_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     return product
-
 
 @router.get("/by-category/{category_id}",
             response_model=List[ProductResponse],

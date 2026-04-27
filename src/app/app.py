@@ -7,7 +7,7 @@ from src.config.database import Base, SessionLocal, engine, get_db
 from src.repositories.admin_repositories import AdminRepository
 from src.routers import (admin_router, category_router, inventory_router,
                          product_router, service_router, technical_router, booking_router, telegram_router, auth_router, vehicle_router, user_router,
-                         slideshow_router)
+                         slideshow_router, search_router)
 # Import all models to register them with SQLAlchemy Base
 from src.schemas.admin import adminModel
 # src/app/app.py
@@ -127,3 +127,7 @@ app.include_router(inventory_router)
 app.include_router(vehicle_router)
 app.include_router(telegram_router)
 app.include_router(slideshow_router)
+
+# ML Image Search router (optional - requires ML service)
+if settings.ML_SERVICE_ENABLED:
+    app.include_router(search_router.router)

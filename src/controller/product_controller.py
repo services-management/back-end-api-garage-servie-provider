@@ -165,6 +165,24 @@ class ProductController:
         )
         return updated
 
+    def search_products(
+        self,
+        category_id: Optional[int] = None,
+        name: Optional[str] = None,
+        brand: Optional[str] = None,
+        limit: int = 20
+    ) -> List[Product]:
+        """Search products by category ID, name, or brand (for ML service).
+        
+        Uses category_id (int) per Option B — ML service passes IDs not names.
+        """
+        return self.product_repo.search(
+            category_id=category_id,
+            name=name,
+            brand=brand,
+            limit=limit
+        )
+
     def delete_product(self, product_id: int) -> bool:
         """
         Delete a product. Repository handles deleting inventory first.
