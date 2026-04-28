@@ -237,6 +237,43 @@ class ProductRepository(BaseRepository[Product]):
         # Use BaseRepository.update(id, data) which commits & refreshes
         return super().update(product_id, update_data)
 
+    # --- Search products by category_id, name, or brand (searches in name) ---
+    def search(
+        self,
+        category_id: Optional[int] = None,
+        name: Optional[str] = None,
+        brand: Optional[str] = None,
+        limit: int = 20
+    ) -> List[Product]:
+        """Search active products by optional filters.
+        
+        Args:
+            category_id: Exact match on category ID (Option B — int, not name)
+            name: Partial case-insensitive match on product name
+            brand: Searches within product name (no dedicated brand column)
+            limit: Max results to return
+        """
+        stmt = (
+            select(Product)
+            .options(
+                joinedload(Product.category),
+                joinedload(Product.inventory)
+            )
+            .where(Product.status == ProductStatus.ACTIVE)
+        )
+        
+        if category_id is not None:
+            stmt = stmt.where(Product.category_id == category_id)
+        
+        if name is not None:
+            stmt = stmt.where(Product.name.ilike(f"%{name}%"))
+        
+        if brand is not None:
+            stmt = stmt.where(Product.name.ilike(f"%{brand}%"))
+        
+        stmt = stmt.limit(limit)
+        return list(self.db.execute(stmt).scalars().unique().all())
+
     # --- soft delete product ---
     def delete(self, product_id: int) -> bool:
         product = self.db.get(Product, product_id)

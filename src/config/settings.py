@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # CORS settings (comma-separated list of allowed origins)
     ALLOWED_ORIGINS: str = os.getenv("ALLOWED_ORIGINS", "")
 
+    # ML Service settings
+    ML_SERVICE_URL: str = os.getenv("ML_SERVICE_URL", "http://localhost:8001")
+    ML_SERVICE_ENABLED: bool = os.getenv("ML_SERVICE_ENABLED", "true").lower() == "true"
+
     @property
     def allowed_origins_list(self) -> List[str]:
         """Parse ALLOWED_ORIGINS into a list. Handles one or multiple origins."""

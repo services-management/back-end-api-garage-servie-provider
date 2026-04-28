@@ -202,3 +202,120 @@ def test_filter_products_by_vehicle_success(
     response = authenticated_admin_client.get("/product/filter-by-vehicle", params=params_invalid_year)
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
+
+# ---------------------------------------------------------------------------
+# GET /product/search  (ML service catalog endpoint)
+# ---------------------------------------------------------------------------
+def test_search_products_by_category_id(authenticated_admin_client):
+    """Test searching products by category_id."""
+    # Create category
+    cat_resp = authenticated_admin_client.post("/category/", json={"name": "Brakes", "description": "Brake parts"})
+    assert cat_resp.status_code in [200, 201]
+    category_id = cat_resp.json()["categoryID"]
+
+    # Create product in that category
+    prod_resp = authenticated_admin_client.post("/product/", json={
+        "name": "Brake Pad BP1234",
+        "selling_price": "29.99",
+        "category_name": "Brakes",
+        "initial_stock": "50.0",
+    })
+    assert prod_resp.status_code == 201
+
+    # Search by category_id
+    response = authenticated_admin_client.get("/product/search", params={"category_id": category_id})
+    assert response.status_code == 200
+    products = response.json()
+    assert len(products) >= 1
+    assert any(p["name"] == "Brake Pad BP1234" for p in products)
+
+
+def test_search_products_by_brand(authenticated_admin_client):
+    """Test searching products by brand (partial name match)."""
+    # Ensure category exists
+    cat_resp = authenticated_admin_client.post("/category/", json={"name": "Electrical", "description": "Electrical parts"})
+    assert cat_resp.status_code in [200, 201, 409]
+
+    # Create product with brand-like name
+    prod_resp = authenticated_admin_client.post("/product/", json={
+        "name": "Bosch Spark Plug",
+        "selling_price": "15.99",
+        "category_name": "Electrical",
+        "initial_stock": "30.0",
+    })
+    assert prod_resp.status_code == 201, f"Product creation failed: {prod_resp.text}"
+
+    response = authenticated_admin_client.get("/product/search", params={"brand": "Bosch"})
+    assert response.status_code == 200
+    products = response.json()
+    assert len(products) >= 1
+    assert any("Bosch" in p["name"] for p in products)
+
+
+def test_search_products_by_name(authenticated_admin_client):
+    """Test searching products by partial name match."""
+    cat_resp = authenticated_admin_client.post("/category/", json={"name": "Filters", "description": "Oil and air filters"})
+    assert cat_resp.status_code in [200, 201, 409]
+
+    prod_resp = authenticated_admin_client.post("/product/", json={
+        "name": "Premium Oil Filter",
+        "selling_price": "12.99",
+        "category_name": "Filters",
+        "initial_stock": "40.0",
+    })
+    assert prod_resp.status_code == 201, f"Product creation failed: {prod_resp.text}"
+
+    response = authenticated_admin_client.get("/product/search", params={"name": "Oil Filter"})
+    assert response.status_code == 200
+    products = response.json()
+    assert len(products) >= 1
+    assert any("Oil Filter" in p["name"] for p in products)
+
+
+def test_search_products_combined_filters(authenticated_admin_client):
+    """Test searching with multiple filters (category_id + brand + name)."""
+    cat_resp = authenticated_admin_client.post("/category/", json={"name": "Filters", "description": "Oil and air filters"})
+    assert cat_resp.status_code in [200, 201]
+    category_id = cat_resp.json()["categoryID"]
+
+    authenticated_admin_client.post("/product/", json={
+        "name": "Bosch Oil Filter W712",
+        "selling_price": "18.50",
+        "category_name": "Filters",
+        "initial_stock": "25.0",
+    })
+
+    response = authenticated_admin_client.get("/product/search", params={
+        "category_id": category_id,
+        "brand": "Bosch",
+        "name": "W712",
+    })
+    assert response.status_code == 200
+    products = response.json()
+    assert len(products) >= 1
+    assert products[0]["name"] == "Bosch Oil Filter W712"
+
+
+def test_search_products_no_results(authenticated_admin_client):
+    """Test search that returns no matching products."""
+    response = authenticated_admin_client.get("/product/search", params={"name": "XYZNONEXISTENT999"})
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_search_products_no_filters_returns_active(authenticated_admin_client):
+    """Test search with no filters returns active products."""
+    response = authenticated_admin_client.get("/product/search")
+    assert response.status_code == 200
+    products = response.json()
+    # Should return at least the products created in earlier tests
+    assert isinstance(products, list)
+
+
+def test_search_products_limit_respected(authenticated_admin_client):
+    """Test that limit parameter is respected."""
+    response = authenticated_admin_client.get("/product/search", params={"limit": 2})
+    assert response.status_code == 200
+    products = response.json()
+    assert len(products) <= 2
+
