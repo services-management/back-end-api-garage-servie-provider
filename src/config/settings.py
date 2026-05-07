@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     # ML Service settings
     ML_SERVICE_URL: str = os.getenv("ML_SERVICE_URL", "http://localhost:8001")
     ML_SERVICE_ENABLED: bool = os.getenv("ML_SERVICE_ENABLED", "true").lower() == "true"
+    ML_API_KEY: str = os.getenv("ML_API_KEY", "")
 
     @property
     def allowed_origins_list(self) -> List[str]:

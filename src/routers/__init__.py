@@ -11,6 +11,6 @@ from .telegram_router import router as telegram_router
 from .auth_router import router as auth_router
 from .vehicle_router import router as vehicle_router
 from .user_router import router as user_router
-# The __all__ list should contain the actual names being exposed.
-# When other files import `from src.routers import *`, they will get these names.
-__all__ = ["admin_router", "technical_router", "product_router", "category_router", "inventory_router", "service_router", "booking_router", "telegram_router", "auth_router","combo_service_router","vehicle_router", "user_router", "slideshow_router"]
+from . import search_router
+
+__all__ = ["admin_router", "technical_router", "product_router", "category_router", "inventory_router", "service_router", "booking_router", "telegram_router", "auth_router", "combo_service_router", "vehicle_router", "user_router", "slideshow_router", "search_router"]
