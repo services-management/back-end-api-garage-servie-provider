@@ -6,24 +6,19 @@ import httpx
 from fastapi import UploadFile
 from typing import Optional, List, Dict
 import logging
-import os
+
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 
 class MLSearchClient:
     """HTTP client for ML Search Service."""
-    
+
     def __init__(self, base_url: Optional[str] = None, timeout: float = 30.0):
-        """Initialize the ML Search client.
-        
-        Args:
-            base_url: Base URL of the ML service (default from env)
-            timeout: Request timeout in seconds
-        """
-        self.base_url = (base_url or os.getenv("ML_SERVICE_URL", "http://localhost:8001")).rstrip('/')
+        self.base_url = (base_url or settings.ML_SERVICE_URL).rstrip('/')
         self.timeout = timeout
-        
+        self._headers = {"X-API-Key": settings.ML_API_KEY}
         logger.info(f"MLSearchClient initialized with base URL: {self.base_url}")
     
     async def search_by_image(
@@ -44,11 +39,10 @@ class MLSearchClient:
         
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             try:
-                # Read file content
                 content = await file.read()
-                
                 response = await client.post(
                     url,
+                    headers=self._headers,
                     files={"file": (file.filename, content, file.content_type or "image/jpeg")},
                     params={"top_k": top_k}
                 )
@@ -83,6 +77,7 @@ class MLSearchClient:
             try:
                 response = await client.post(
                     url,
+                    headers=self._headers,
                     params={"product_id": product_id, "image_url": image_url}
                 )
                 
@@ -99,10 +94,10 @@ class MLSearchClient:
             True if rebuild started successfully, False otherwise
         """
         url = f"{self.base_url}/api/v1/rebuild-index"
-        
+
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             try:
-                response = await client.post(url)
+                response = await client.post(url, headers=self._headers)
                 return response.status_code == 200
             except Exception as e:
                 logger.error(f"Error rebuilding index: {e}")
@@ -115,10 +110,10 @@ class MLSearchClient:
             Stats dictionary or None if failed
         """
         url = f"{self.base_url}/api/v1/index/stats"
-        
+
         async with httpx.AsyncClient(timeout=5.0) as client:
             try:
-                response = await client.get(url)
+                response = await client.get(url, headers=self._headers)
                 if response.status_code == 200:
                     return response.json()
             except Exception as e:
@@ -148,10 +143,10 @@ class MLSearchClient:
             List of brand names
         """
         url = f"{self.base_url}/api/v1/brands"
-        
+
         async with httpx.AsyncClient(timeout=5.0) as client:
             try:
-                response = await client.get(url)
+                response = await client.get(url, headers=self._headers)
                 if response.status_code == 200:
                     data = response.json()
                     return data.get("brands", [])
@@ -167,10 +162,10 @@ class MLSearchClient:
             List of category names
         """
         url = f"{self.base_url}/api/v1/categories"
-        
+
         async with httpx.AsyncClient(timeout=5.0) as client:
             try:
-                response = await client.get(url)
+                response = await client.get(url, headers=self._headers)
                 if response.status_code == 200:
                     data = response.json()
                     return data.get("categories", [])
